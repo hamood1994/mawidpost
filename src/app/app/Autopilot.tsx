@@ -124,7 +124,7 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
         {accounts.length === 0 && <div className="msg warn">لا توجد حسابات مربوطة بهذا البراند. اربط الحسابات وحدّد البراند من «الإعدادات».</div>}
         <div className="grid2">
           {accounts.map((a) => (
-            <RuleCard key={a.id} account={a} rule={ruleFor(a)} onSave={saveRule} />
+            <RuleCard key={a.id} account={a} rule={ruleFor(a)} onSave={saveRule} chain={Boolean(brand.client_approval)} />
           ))}
         </div>
       </div>
@@ -182,7 +182,7 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
   );
 }
 
-function RuleCard({ account, rule, onSave }: { account: Account; rule: Rule; onSave: (r: Rule) => void }) {
+function RuleCard({ account, rule, onSave, chain }: { account: Account; rule: Rule; onSave: (r: Rule) => void; chain: boolean }) {
   const [r, setR] = useState<Rule>(rule);
   const [times, setTimes] = useState(rule.times.join(", "));
   useEffect(() => { setR(rule); setTimes(rule.times.join(", ")); }, [rule.enabled, rule.days.join(), rule.times.join(), rule.post_type, rule.approval, rule.send_to_client, rule.text_only_ok]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -194,7 +194,7 @@ function RuleCard({ account, rule, onSave }: { account: Account; rule: Rule; onS
     (r.days.length === 0
       ? "اختر يوماً واحداً على الأقل."
       : `سينشر ${TYPE_LABEL[r.post_type]} على @${account.handle} كل ${[...r.days].sort().map((d) => WEEKDAYS[d]).join("، ")} الساعة ${(listTimes.length ? listTimes : ["19:00"]).join(" و ")} (توقيت الكويت)، ` +
-        (approvalMode === "none" ? "مباشرة بدون موافقة." : approvalMode === "me" ? "بعد موافقتك." : "بعد موافقة العميل."));
+        (approvalMode === "none" ? "مباشرة بدون موافقة." : approvalMode === "me" ? (chain ? "بعد موافقتك أولاً، ثم موافقة العميل." : "بعد موافقتك.") : "بعد موافقة العميل."));
 
   return (
     <div className="panel" style={{ background: "var(--bg)" }}>
@@ -230,7 +230,7 @@ function RuleCard({ account, rule, onSave }: { account: Account; rule: Rule; onS
       <div className="field">
         <label>من يوافق قبل النشر؟</label>
         <div className="seg">
-          {([["none", "لا أحد (ينشر مباشرة)"], ["me", "موافقتي أنا"], ["client", "موافقة العميل"]] as const).map(([k, l]) => (
+          {([["none", "لا أحد (ينشر مباشرة)"], ["me", chain ? "موافقتي ثم العميل" : "موافقتي أنا"], ["client", "موافقة العميل"]] as const).map(([k, l]) => (
             <button type="button" key={k} className={approvalMode === k ? "on" : ""} onClick={() => setR({ ...r, approval: k !== "none", send_to_client: k === "client" })}>{l}</button>
           ))}
         </div>

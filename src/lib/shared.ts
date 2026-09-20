@@ -13,6 +13,7 @@ export interface Post {
 export interface Brand {
   id: string; name: string; industry: string; description: string; audience: string;
   tone: string; language: string; avoid: string; default_hashtags: string;
+  client_approval?: boolean;
 }
 export interface Plan {
   id: string; name: string; sort: number; max_accounts: number; max_members: number;

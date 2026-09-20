@@ -16,27 +16,33 @@ export default function Bio({ ctx }: { ctx: Ctx }) {
   const [links, setLinks] = useState<Link[]>([{ title: "", url: "" }]);
   const [msg, setMsg] = useState<{ t: "ok" | "err"; s: string } | null>(null);
 
+  const brand = ctx.brands.find((b) => b.id === ctx.brandId) ?? ctx.brands[0];
+  const brandId = brand?.id;
+
   useEffect(() => {
-    supabase.from("bio_pages").select("*").eq("org_id", ctx.org.id).maybeSingle().then(({ data }) => {
-      if (!data) return setTitle(ctx.org.name);
+    setSlug(""); setBio(""); setAvatar(null); setLinks([{ title: "", url: "" }]); setMsg(null);
+    setTitle(brand?.name ?? ctx.org.name);
+    if (!brandId) return;
+    supabase.from("bio_pages").select("*").eq("brand_id", brandId).maybeSingle().then(({ data }) => {
+      if (!data) return;
       setSlug(data.slug); setTitle(data.title); setBio(data.bio); setAvatar(data.avatar_url);
       setLinks((data.links as Link[]).length ? data.links : [{ title: "", url: "" }]);
     });
-  }, [ctx.org.id, ctx.org.name]);
+  }, [brandId, brand?.name, ctx.org.name]);
 
   if (!ctx.isAdmin) return <div className="msg warn">صفحة الروابط يديرها المالك والمدير.</div>;
   const setL = (i: number, p: Partial<Link>) => setLinks(links.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
   async function save() {
     const clean = links.filter((l) => l.title.trim() && /^https?:\/\//i.test(l.url.trim())).map((l) => ({ title: l.title.trim(), url: l.url.trim() }));
-    const { error } = await supabase.from("bio_pages").upsert({ org_id: ctx.org.id, slug: slug.trim().toLowerCase(), title, bio, avatar_url: avatar, links: clean, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
+    const { error } = await supabase.from("bio_pages").upsert({ org_id: ctx.org.id, brand_id: brandId, slug: slug.trim().toLowerCase(), title, bio, avatar_url: avatar, links: clean, updated_at: new Date().toISOString() }, { onConflict: "brand_id" });
     setMsg(error ? { t: "err", s: friendly(error.message.includes("check") ? "الرابط: حروف إنجليزية صغيرة وأرقام وشرطة، 3 أحرف على الأقل." : error.message) } : { t: "ok", s: "تم الحفظ." });
   }
 
   return (
     <div className="panel">
-      <h3>صفحة الروابط (Link in bio)</h3>
-      <p className="hint">صفحة عامة تضع رابطها في بايو إنستغرام.</p>
+      <h3>صفحة الروابط: {brand?.name}</h3>
+      <p className="hint">صفحة عامة خاصة بهذا العميل، تضع رابطها في بايو إنستغرامه. اختر عميلاً آخر من القائمة بالأعلى لصفحته.</p>
       {msg && <div className={`msg ${msg.t}`}>{msg.s}</div>}
       <div className="grid2">
         <div className="field"><label>الرابط: mawidpost.com/l/</label><input dir="ltr" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="my-brand" /></div>
@@ -58,7 +64,7 @@ export default function Bio({ ctx }: { ctx: Ctx }) {
       ))}
       <div className="actions" style={{ justifyContent: "flex-start" }}>
         <button className="btn" onClick={() => setLinks([...links, { title: "", url: "" }])}>+ رابط</button>
-        <button className="btn primary" onClick={save} disabled={slug.trim().length < 3}>حفظ</button>
+        <button className="btn primary" onClick={save} disabled={slug.trim().length < 3 || !brandId}>حفظ</button>
         {slug && <a className="btn" href={`/l/${slug}`} target="_blank" rel="noreferrer">فتح الصفحة</a>}
       </div>
     </div>

@@ -61,6 +61,12 @@ export default function Settings({ ctx }: { ctx: Ctx }) {
           {ctx.brands.map((b) => (
             <div key={b.id}>
               <span>{b.name}</span>
+              {ctx.isAdmin && (
+                <label className={`check${b.client_approval ? " on" : ""}`} title="بعد موافقة المدير، يرسل المنشور للعميل ليوافق قبل الجدولة">
+                  <input type="checkbox" checked={b.client_approval ?? false} onChange={async (e) => { await supabase.from("brands").update({ client_approval: e.target.checked }).eq("id", b.id); ctx.reload(); }} />
+                  موافقة العميل بعد المدير
+                </label>
+              )}
               {ctx.isAdmin && ctx.brands.length > 1 && (
                 <button className="btn sm danger" onClick={async () => { if (confirm(`حذف «${b.name}» وتصاميمه وقواعده؟`)) { await supabase.from("brands").delete().eq("id", b.id); ctx.reload(); } }}>حذف</button>
               )}

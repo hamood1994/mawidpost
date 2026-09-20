@@ -38,6 +38,8 @@ export default function PostModal({ ctx, post, onClose, onChanged }: { ctx: Ctx;
 
   const changed = caption !== post.caption || new Date(when).toISOString() !== new Date(post.scheduled_at).toISOString();
   const isEditor = ctx.org.role === "editor";
+  const brand = ctx.brands.find((b) => b.id === acc?.brand_id);
+  const chain = Boolean(brand?.client_approval); // manager approves first, then the client
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -47,7 +49,7 @@ export default function PostModal({ ctx, post, onClose, onChanged }: { ctx: Ctx;
         </h3>
         {error && <div className="msg err">{error}</div>}
         {post.status === "failed" && post.error && <div className="msg err">{post.error}</div>}
-        {post.status === "pending" && <div className="msg warn">{post.for_client ? "بانتظار موافقة العميل." : "بانتظار موافقة المالك أو المدير."}</div>}
+        {post.status === "pending" && <div className="msg warn">{post.for_client ? "بانتظار موافقة العميل." : chain ? "بانتظار موافقة المدير، ثم يُرسل للعميل." : "بانتظار موافقة المالك أو المدير."}</div>}
         {post.media_urls.length > 0 && (
           <div className="media-grid">
             {post.media_urls.map((u) => (isVideo(u) ? <video key={u} src={u} controls /> : <img key={u} src={u} alt="" />))}
@@ -94,7 +96,11 @@ export default function PostModal({ ctx, post, onClose, onChanged }: { ctx: Ctx;
           {post.status === "pending" && ctx.isAdmin && (
             <>
               <button className="btn" disabled={busy} onClick={async () => { if (note.trim()) await addComment(note); await update({ status: "draft", for_client: false }); }}>رفض (مسودة)</button>
-              <button className="btn primary" disabled={busy} onClick={() => update({ status: "scheduled", caption, scheduled_at: new Date(when).toISOString() })}>موافقة وجدولة</button>
+              {chain && !post.for_client ? (
+                <button className="btn primary" disabled={busy} onClick={() => update({ for_client: true, caption, scheduled_at: new Date(when).toISOString() })}>موافقة وإرسال للعميل</button>
+              ) : (
+                <button className="btn primary" disabled={busy} onClick={() => update({ status: "scheduled", caption, scheduled_at: new Date(when).toISOString() })}>موافقة وجدولة</button>
+              )}
             </>
           )}
           {post.status === "failed" && !isEditor && (
