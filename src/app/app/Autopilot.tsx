@@ -9,7 +9,7 @@ import type { Ctx } from "./ctx";
 interface Item { id: string; url: string; kind: "image" | "video"; caption: string; note: string; used_count: number }
 interface Rule {
   id?: string; account_id: string; enabled: boolean; days: number[]; times: string[]; post_type: PostType;
-  approval: boolean; text_only_ok: boolean; last_note?: string | null; last_run_at?: string | null;
+  approval: boolean; send_to_client?: boolean; text_only_ok: boolean; last_note?: string | null; last_run_at?: string | null;
 }
 interface Draft { key: string; file: File; caption: string; when: string }
 
@@ -68,7 +68,7 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
 
   async function saveRule(r: Rule) {
     const { error } = await supabase.from("autopilot_rules").upsert(
-      { org_id: ctx.org.id, brand_id: brandId, account_id: r.account_id, enabled: r.enabled, days: r.days, times: r.times, post_type: r.post_type, approval: r.approval, text_only_ok: r.text_only_ok },
+      { org_id: ctx.org.id, brand_id: brandId, account_id: r.account_id, enabled: r.enabled, days: r.days, times: r.times, post_type: r.post_type, approval: r.approval, send_to_client: r.send_to_client ?? false, text_only_ok: r.text_only_ok },
       { onConflict: "account_id" }
     );
     if (error) setMsg({ t: "err", s: friendly(error.message) });
@@ -180,7 +180,7 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
 function RuleCard({ account, rule, onSave }: { account: Account; rule: Rule; onSave: (r: Rule) => void }) {
   const [r, setR] = useState<Rule>(rule);
   const [times, setTimes] = useState(rule.times.join(", "));
-  useEffect(() => { setR(rule); setTimes(rule.times.join(", ")); }, [rule.enabled, rule.days.join(), rule.times.join(), rule.post_type, rule.approval, rule.text_only_ok]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setR(rule); setTimes(rule.times.join(", ")); }, [rule.enabled, rule.days.join(), rule.times.join(), rule.post_type, rule.approval, rule.send_to_client, rule.text_only_ok]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleDay = (d: number) => setR({ ...r, days: r.days.includes(d) ? r.days.filter((x) => x !== d) : [...r.days, d].sort() });
   return (
     <div className="panel" style={{ background: "var(--bg)" }}>
@@ -217,6 +217,11 @@ function RuleCard({ account, rule, onSave }: { account: Account; rule: Rule; onS
         <label className={`check${r.approval ? " on" : ""}`}>
           <input type="checkbox" checked={r.approval} onChange={(e) => setR({ ...r, approval: e.target.checked })} />يحتاج موافقة قبل النشر
         </label>
+        {r.approval && (
+          <label className={`check${r.send_to_client ? " on" : ""}`}>
+            <input type="checkbox" checked={r.send_to_client ?? false} onChange={(e) => setR({ ...r, send_to_client: e.target.checked })} />الموافقة من العميل نفسه
+          </label>
+        )}
         {account.platform === "facebook" && (
           <label className={`check${r.text_only_ok ? " on" : ""}`}>
             <input type="checkbox" checked={r.text_only_ok} onChange={(e) => setR({ ...r, text_only_ok: e.target.checked })} />نص فقط إذا انتهت التصاميم

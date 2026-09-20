@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { admin, fail, HttpError, requireRole, requireUser } from "@/lib/server/admin";
+import { admin, fail, HttpError, requireBrandAccess, requireUser } from "@/lib/server/admin";
 import { decrypt } from "@/lib/server/crypto";
 import { graph } from "@/lib/server/meta";
 
@@ -23,9 +23,9 @@ export async function GET(req: Request) {
     const accountId = new URL(req.url).searchParams.get("accountId");
     if (!accountId) throw new HttpError(400, "accountId مطلوب");
     const db = admin();
-    const { data: acc } = await db.from("social_accounts").select("id, org_id, platform, external_id, handle").eq("id", accountId).maybeSingle();
+    const { data: acc } = await db.from("social_accounts").select("id, org_id, brand_id, platform, external_id, handle").eq("id", accountId).maybeSingle();
     if (!acc) throw new HttpError(404, "الحساب غير موجود");
-    await requireRole(user.id, acc.org_id, ["owner", "admin", "editor"]);
+    await requireBrandAccess(user.id, acc.org_id, acc.brand_id, ["owner", "admin", "editor", "client"]);
     if (!acc.external_id) throw new HttpError(400, "هذا الحساب غير مربوط مع Meta");
     const { data: tok } = await db.from("account_tokens").select("token_enc").eq("account_id", acc.id).maybeSingle();
     if (!tok) throw new HttpError(400, "أعد ربط الحساب لعرض التحليلات");

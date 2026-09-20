@@ -6,13 +6,16 @@ cd "$(dirname "$0")/.."
 F=.env.local
 touch "$F"; chmod 600 "$F"
 
+# make sure the file ends with a newline before appending
+if [ -s "$F" ] && [ -n "$(tail -c1 "$F")" ]; then echo >> "$F"; fi
+
 has() { grep -q "^$1=" "$F"; }
 put() { has "$1" || printf '%s=%s\n' "$1" "$2" >> "$F"; }
 ask() { # name  prompt  [secret]
   if has "$1"; then echo "✓ $1 already set"; return; fi
   local v
   if [ "${3:-}" = "secret" ]; then read -r -s -p "$2: " v; echo; else read -r -p "$2: " v; fi
-  [ -n "$v" ] && printf '%s=%s\n' "$1" "$v" >> "$F"
+  if [ -n "$v" ]; then printf '%s=%s\n' "$1" "$v" >> "$F"; fi
 }
 
 put SITE_URL "https://mawidpost.com"

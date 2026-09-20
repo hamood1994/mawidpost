@@ -10,6 +10,7 @@ interface Rule {
   tz: string;
   post_type: "post" | "story" | "reel";
   approval: boolean;
+  send_to_client?: boolean;
   text_only_ok: boolean;
   recycle: boolean;
 }
@@ -113,7 +114,10 @@ export async function runAutopilot(
   let q = db.from("autopilot_rules").select("*").eq("enabled", true);
   if (opts.orgId) q = q.eq("org_id", opts.orgId);
   if (opts.brandId) q = q.eq("brand_id", opts.brandId);
-  const { data: rules } = await q;
+  const { data: allRules } = await q;
+  const { data: susp } = await db.from("organizations").select("id").eq("suspended", true);
+  const suspended = new Set(((susp ?? []) as { id: string }[]).map((o) => o.id));
+  const rules = (allRules ?? []).filter((r: { org_id: string }) => !suspended.has(r.org_id));
 
   const notes: string[] = [];
   let created = 0;
@@ -228,6 +232,7 @@ export async function runAutopilot(
           post_type: rule.post_type,
           scheduled_at: slot.toISOString(),
           status: rule.approval ? "pending" : "scheduled",
+          for_client: rule.approval && Boolean(rule.send_to_client),
           autopilot: true,
         });
         if (error) {

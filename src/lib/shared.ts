@@ -1,14 +1,14 @@
 export type Platform = "instagram" | "facebook" | "tiktok";
 export type Status = "draft" | "pending" | "scheduled" | "publishing" | "published" | "failed";
 export type PostType = "post" | "story" | "reel";
-export type Role = "owner" | "admin" | "editor";
+export type Role = "owner" | "admin" | "editor" | "client";
 
-export interface Org { id: string; name: string; plan: string; role: Role }
+export interface Org { id: string; name: string; plan: string; role: Role; suspended?: boolean }
 export interface Account { id: string; platform: Platform; handle: string; status: string; external_id: string | null; avatar_url: string | null; brand_id: string | null }
 export interface Post {
   id: string; org_id: string; account_id: string | null; caption: string; first_comment: string | null;
   scheduled_at: string; status: Status; post_type: PostType; media_urls: string[];
-  error: string | null; published_at: string | null; external_id: string | null; autopilot?: boolean;
+  error: string | null; published_at: string | null; external_id: string | null; autopilot?: boolean; for_client?: boolean;
 }
 export interface Brand {
   id: string; name: string; industry: string; description: string; audience: string;
@@ -34,7 +34,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   failed: "فشل النشر",
 };
 export const TYPE_LABEL: Record<PostType, string> = { post: "منشور", story: "ستوري", reel: "ريلز" };
-export const ROLE_LABEL: Record<Role, string> = { owner: "مالك", admin: "مدير", editor: "محرّر" };
+export const ROLE_LABEL: Record<Role, string> = { owner: "مالك", admin: "مدير", editor: "محرّر", client: "عميل" };
 export const WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
 export const isVideo = (u: string) => /\.(mp4|mov|m4v|webm)(\?|$)/i.test(u);
@@ -51,6 +51,8 @@ export function friendly(message: string): string {
   if (m.includes("plan_limit_members")) return "وصلت لحد عدد الأعضاء في خطتك.";
   if (m.includes("editors_must_submit")) return "المحرّر يرسل المنشور للموافقة ولا يجدوله مباشرة.";
   if (m.includes("invite_email_mismatch")) return "هذه الدعوة لبريد آخر. سجّل الدخول بالبريد الذي وصلته عليه الدعوة.";
+  if (m.includes("not_pending")) return "هذا المنشور لم يعد بانتظار الموافقة.";
+  if (m.includes("forbidden")) return "ليس لديك صلاحية لهذا الإجراء.";
   if (m.includes("invite_invalid")) return "الدعوة غير صالحة أو استُخدمت من قبل.";
   if (m.includes("duplicate key") && m.includes("slug")) return "هذا الرابط مستخدم، اختر اسماً آخر.";
   return m || "حدث خطأ غير متوقع.";
@@ -76,3 +78,11 @@ export async function toJpeg(file: File): Promise<File> {
     return file;
   }
 }
+
+export interface ThemeItem { title: string; note: string }
+export interface BrandPlan {
+  id?: string; org_id: string; brand_id: string; month: string; notes: string;
+  target_posts: number; target_reels: number; target_stories: number; themes: ThemeItem[];
+}
+export const firstOfMonth = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+export const arMonth = (d: Date) => new Intl.DateTimeFormat("ar-KW-u-nu-latn", { month: "long", year: "numeric" }).format(d);

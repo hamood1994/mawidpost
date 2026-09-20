@@ -16,11 +16,13 @@ import Library from "./Library";
 import Team from "./Team";
 import Bio from "./Bio";
 import Settings from "./Settings";
+import Plans from "./Plans";
+import ClientPortal from "./ClientPortal";
 
-type Tab = "calendar" | "autopilot" | "analytics" | "library" | "team" | "bio" | "settings";
+type Tab = "calendar" | "autopilot" | "analytics" | "plans" | "library" | "team" | "bio" | "settings";
 const TABS: [Tab, string][] = [
-  ["calendar", "التقويم"], ["autopilot", "الأوتوبايلوت"], ["analytics", "التحليلات"], ["library", "المكتبة"],
-  ["team", "الفريق"], ["bio", "صفحة الروابط"], ["settings", "الإعدادات"],
+  ["calendar", "التقويم"], ["autopilot", "الأوتوبايلوت"], ["analytics", "التحليلات"], ["plans", "خطة العميل"], ["library", "المكتبة"],
+  ["team", "الفريق والعملاء"], ["bio", "صفحة الروابط"], ["settings", "الإعدادات"],
 ];
 
 function AppInner() {
@@ -40,13 +42,14 @@ function AppInner() {
   const [month, setMonth] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
   const [composeDay, setComposeDay] = useState<Date | null>(null);
   const [selected, setSelected] = useState<Post | null>(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [notice, setNotice] = useState<{ t: "ok" | "err"; s: string } | null>(null);
 
   const org = orgs.find((o) => o.id === orgId) ?? null;
 
   const loadOrgs = useCallback(async () => {
-    const { data } = await supabase.from("members").select("role, organizations(id, name, plan)");
-    const list: Org[] = ((data as any[]) ?? []).filter((r) => r.organizations).map((r) => ({ id: r.organizations.id, name: r.organizations.name, plan: r.organizations.plan, role: r.role as Role }));
+    const { data } = await supabase.from("members").select("role, organizations(id, name, plan, suspended)");
+    const list: Org[] = ((data as any[]) ?? []).filter((r) => r.organizations).map((r) => ({ id: r.organizations.id, name: r.organizations.name, plan: r.organizations.plan, suspended: r.organizations.suspended, role: r.role as Role }));
     setOrgs(list);
     setOrgId((cur) => {
       if (cur && list.some((o) => o.id === cur)) return cur;
@@ -63,6 +66,7 @@ function AppInner() {
       setUserId(data.session.user.id);
       loadOrgs();
     });
+    supabase.rpc("is_platform_admin").then((r) => setIsPlatformAdmin(r.data === true));
     supabase.from("plans").select("*").order("sort").then((r) => setPlans((r.data as Plan[]) ?? []));
   }, [router, loadOrgs]);
 
@@ -94,7 +98,7 @@ function AppInner() {
     const from = new Date(month.getFullYear(), month.getMonth(), 1).toISOString();
     const to = new Date(month.getFullYear(), month.getMonth() + 1, 1).toISOString();
     const { data } = await supabase.from("posts")
-      .select("id, org_id, account_id, caption, first_comment, scheduled_at, status, post_type, media_urls, error, published_at, external_id, autopilot")
+      .select("id, org_id, account_id, caption, first_comment, scheduled_at, status, post_type, media_urls, error, published_at, external_id, autopilot, for_client")
       .eq("org_id", orgId).gte("scheduled_at", from).lt("scheduled_at", to).order("scheduled_at");
     setPosts((data as Post[]) ?? []);
   }, [orgId, month]);
@@ -118,6 +122,17 @@ function AppInner() {
     isAdmin: org.role === "owner" || org.role === "admin",
     reload: async () => { await Promise.all([loadOrgs(), loadBase(), loadPosts()]); },
   };
+
+  const signOut = async () => { await supabase.auth.signOut(); router.replace("/auth"); };
+
+  if (org.suspended && !isPlatformAdmin) {
+    return (
+      <main className="center"><div className="card"><h1>الحساب موقوف</h1><p className="sub">تم إيقاف هذا الحساب مؤقتاً. تواصل مع الدعم لإعادة تفعيله.</p><button className="btn" onClick={signOut}>خروج</button></div></main>
+    );
+  }
+  if (org.role === "client") return <ClientPortal ctx={ctx} onSignOut={signOut} />;
+
+  const visibleTabs = TABS.filter(([k]) => ctx.isAdmin || k === "calendar" || k === "analytics" || k === "library" || k === "plans");
 
   const y = month.getFullYear();
   const mo = month.getMonth();
@@ -149,13 +164,14 @@ function AppInner() {
               {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           )}
+          {isPlatformAdmin && <a className="btn" href="/admin">لوحة الأدمن</a>}
           <span className="num" style={{ color: "var(--muted)", fontSize: 12 }}>{email}</span>
           <button className="btn" onClick={async () => { await supabase.auth.signOut(); router.replace("/auth"); }}>خروج</button>
         </div>
       </header>
 
       <nav className="tabs" aria-label="الأقسام">
-        {TABS.map(([k, l]) => (
+        {visibleTabs.map(([k, l]) => (
           <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>
             {l}{k === "calendar" && pending > 0 ? ` (${pending} بانتظار الموافقة)` : ""}
           </button>
@@ -216,6 +232,7 @@ function AppInner() {
         )}
         {tab === "autopilot" && <Autopilot ctx={ctx} />}
         {tab === "analytics" && <Analytics ctx={ctx} />}
+        {tab === "plans" && <Plans ctx={ctx} />}
         {tab === "library" && <Library ctx={ctx} />}
         {tab === "team" && <Team ctx={ctx} />}
         {tab === "bio" && <Bio ctx={ctx} />}

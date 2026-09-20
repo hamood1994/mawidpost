@@ -8,7 +8,7 @@ import type { Ctx } from "./ctx";
 interface P { id: string; text: string; url: string | null; thumb: string | null; time: string; likes: number; comments: number; shares: number; kind: string }
 interface Data { handle: string; platform: string; followers: number | null; mediaCount: number | null; posts: P[]; history: { day: string; followers: number | null }[] }
 
-export default function Analytics({ ctx }: { ctx: Ctx }) {
+export default function Analytics({ ctx, simple }: { ctx: Ctx; simple?: boolean }) {
   const accs = ctx.accounts.filter((a) => a.status === "connected" && a.external_id);
   const [id, setId] = useState(accs[0]?.id ?? "");
   const [data, setData] = useState<Data | null>(null);
@@ -63,7 +63,7 @@ export default function Analytics({ ctx }: { ctx: Ctx }) {
 
           {data.history.length > 1 && <Spark rows={data.history.filter((h) => h.followers != null) as { day: string; followers: number }[]} />}
 
-          <div className="panel">
+          {!simple && <div className="panel">
             <h3>أفضل وقت للنشر</h3>
             <p className="hint">حسب تفاعل منشوراتك السابقة (بتوقيت جهازك). الأغمق = تفاعل أعلى.</p>
             <div className="heat">
@@ -79,7 +79,7 @@ export default function Analytics({ ctx }: { ctx: Ctx }) {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
 
           <div className="panel posts-list">
             <h3>أفضل المنشورات</h3>

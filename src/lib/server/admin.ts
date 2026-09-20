@@ -38,11 +38,28 @@ export async function requireUser(req: Request): Promise<AuthedUser> {
   return { id: data.user.id, email: data.user.email ?? "" };
 }
 
-export type Role = "owner" | "admin" | "editor";
+export type Role = "owner" | "admin" | "editor" | "client";
 
 export async function requireRole(userId: string, orgId: string, roles: Role[]): Promise<Role> {
   const { data } = await admin().from("members").select("role").eq("org_id", orgId).eq("user_id", userId).maybeSingle();
   const role = data?.role as Role | undefined;
   if (!role || !roles.includes(role)) throw new HttpError(403, "ليس لديك صلاحية لهذا الإجراء");
   return role;
+}
+
+/** Editors and clients only see brands they were assigned; owners/admins see all. */
+export async function requireBrandAccess(userId: string, orgId: string, brandId: string | null, roles: Role[]): Promise<Role> {
+  const role = await requireRole(userId, orgId, roles);
+  if (role === "owner" || role === "admin") return role;
+  const { data } = await admin().from("member_brands").select("brand_id").eq("org_id", orgId).eq("user_id", userId).eq("brand_id", brandId ?? "").maybeSingle();
+  if (!data) throw new HttpError(403, "ليس لديك صلاحية على هذا العميل");
+  return role;
+}
+
+/** Platform super-admin (the MawidPost operator). */
+export async function requirePlatformAdmin(req: Request): Promise<AuthedUser> {
+  const user = await requireUser(req);
+  const { data } = await admin().from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle();
+  if (!data) throw new HttpError(403, "هذه الصفحة لمشغّل المنصة فقط");
+  return user;
 }
