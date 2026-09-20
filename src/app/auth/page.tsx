@@ -8,6 +8,8 @@ import { configured, supabase } from "@/lib/supabase";
 function AuthForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const rawNext = params.get("next") ?? "";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/app";
   const [mode, setMode] = useState<"signin" | "signup">(params.get("mode") === "signup" ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,12 +25,12 @@ function AuthForm() {
     if (mode === "signup") {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) setError(error.message);
-      else if (data.session) router.replace("/app");
+      else if (data.session) router.replace(next);
       else setNotice("أرسلنا رابط تأكيد إلى بريدك. افتحه ثم سجّل الدخول.");
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError("البريد الإلكتروني أو كلمة المرور غير صحيحة.");
-      else router.replace("/app");
+      else router.replace(next);
     }
     setBusy(false);
   }

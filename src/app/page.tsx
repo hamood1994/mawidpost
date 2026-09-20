@@ -21,6 +21,11 @@ export default function Home() {
             تسجيل الدخول
           </Link>
         </div>
+        <div className="footer-links">
+          <Link href="/privacy">الخصوصية</Link>
+          <Link href="/terms">الشروط</Link>
+          <Link href="/data-deletion">حذف البيانات</Link>
+        </div>
       </div>
     </main>
   );

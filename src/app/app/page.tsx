@@ -1,118 +1,132 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import {
+  PLATFORMS, STATUS_LABEL, TYPE_LABEL, WEEKDAYS, hm, ymd,
+  type Account, type Brand, type Org, type Plan, type Post, type Role,
+} from "@/lib/shared";
+import type { Ctx } from "./ctx";
+import Composer from "./Composer";
+import PostModal from "./PostModal";
+import Autopilot from "./Autopilot";
+import Analytics from "./Analytics";
+import Library from "./Library";
+import Team from "./Team";
+import Bio from "./Bio";
+import Settings from "./Settings";
 
-type Platform = "instagram" | "facebook" | "tiktok";
-type Status = "draft" | "scheduled" | "published" | "failed";
+type Tab = "calendar" | "autopilot" | "analytics" | "library" | "team" | "bio" | "settings";
+const TABS: [Tab, string][] = [
+  ["calendar", "التقويم"], ["autopilot", "الأوتوبايلوت"], ["analytics", "التحليلات"], ["library", "المكتبة"],
+  ["team", "الفريق"], ["bio", "صفحة الروابط"], ["settings", "الإعدادات"],
+];
 
-interface Org { id: string; name: string }
-interface Account { id: string; platform: Platform; handle: string }
-type PostType = "post" | "story" | "reel";
-interface Post {
-  id: string; account_id: string | null; caption: string; scheduled_at: string; status: Status;
-  post_type: PostType; media_urls: string[];
-}
-const TYPE_LABEL: Record<PostType, string> = { post: "منشور", story: "ستوري", reel: "ريلز" };
-const isVideo = (u: string) => /\.(mp4|mov|m4v|webm)(\?|$)/i.test(u);
-
-const PLATFORMS: Record<Platform, { label: string; color: string }> = {
-  instagram: { label: "إنستغرام", color: "var(--instagram)" },
-  facebook: { label: "فيسبوك", color: "var(--facebook)" },
-  tiktok: { label: "تيك توك", color: "var(--tiktok)" },
-};
-const STATUS_LABEL: Record<Status, string> = {
-  draft: "مسودة",
-  scheduled: "مجدول",
-  published: "منشور",
-  failed: "فشل النشر",
-};
-const WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-
-const pad = (n: number) => String(n).padStart(2, "0");
-const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const hm = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-
-export default function AppPage() {
+function AppInner() {
   const router = useRouter();
+  const params = useSearchParams();
   const [email, setEmail] = useState("");
+  const [userId, setUserId] = useState("");
   const [checking, setChecking] = useState(true);
-  const [org, setOrg] = useState<Org | null>(null);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [orgId, setOrgId] = useState("");
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [allAccounts, setAllAccounts] = useState<Account[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [brandId, setBrandId] = useState("");
+  const [tab, setTab] = useState<Tab>("calendar");
   const [posts, setPosts] = useState<Post[]>([]);
-  const [month, setMonth] = useState(() => {
-    const n = new Date();
-    return new Date(n.getFullYear(), n.getMonth(), 1);
-  });
+  const [month, setMonth] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
   const [composeDay, setComposeDay] = useState<Date | null>(null);
   const [selected, setSelected] = useState<Post | null>(null);
-  const [accountModal, setAccountModal] = useState(false);
+  const [notice, setNotice] = useState<{ t: "ok" | "err"; s: string } | null>(null);
 
-  const loadOrg = useCallback(async () => {
-    const { data } = await supabase.from("members").select("org_id, organizations(id, name)").limit(1);
-    const row = (data as any[] | null)?.[0];
-    const o = row?.organizations;
-    setOrg(o ? { id: o.id, name: o.name } : null);
+  const org = orgs.find((o) => o.id === orgId) ?? null;
+
+  const loadOrgs = useCallback(async () => {
+    const { data } = await supabase.from("members").select("role, organizations(id, name, plan)");
+    const list: Org[] = ((data as any[]) ?? []).filter((r) => r.organizations).map((r) => ({ id: r.organizations.id, name: r.organizations.name, plan: r.organizations.plan, role: r.role as Role }));
+    setOrgs(list);
+    setOrgId((cur) => {
+      if (cur && list.some((o) => o.id === cur)) return cur;
+      try { const s = localStorage.getItem("mp_org"); if (s && list.some((o) => o.id === s)) return s; } catch {}
+      return list[0]?.id ?? "";
+    });
     setChecking(false);
   }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/auth");
-        return;
-      }
+      if (!data.session) return router.replace("/auth");
       setEmail(data.session.user.email ?? "");
-      loadOrg();
+      setUserId(data.session.user.id);
+      loadOrgs();
     });
-  }, [router, loadOrg]);
-
-  const loadData = useCallback(async () => {
-    if (!org) return;
-    const from = new Date(month.getFullYear(), month.getMonth(), 1).toISOString();
-    const to = new Date(month.getFullYear(), month.getMonth() + 1, 1).toISOString();
-    const [a, p] = await Promise.all([
-      supabase.from("social_accounts").select("id, platform, handle").eq("org_id", org.id).order("created_at"),
-      supabase
-        .from("posts")
-        .select("id, account_id, caption, scheduled_at, status, post_type, media_urls")
-        .eq("org_id", org.id)
-        .gte("scheduled_at", from)
-        .lt("scheduled_at", to)
-        .order("scheduled_at"),
-    ]);
-    setAccounts((a.data as Account[] | null) ?? []);
-    setPosts((p.data as Post[] | null) ?? []);
-  }, [org, month]);
+    supabase.from("plans").select("*").order("sort").then((r) => setPlans((r.data as Plan[]) ?? []));
+  }, [router, loadOrgs]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    try { if (orgId) localStorage.setItem("mp_org", orgId); } catch {}
+  }, [orgId]);
 
+  useEffect(() => {
+    const ok = params.get("connected");
+    const err = params.get("meta_error");
+    if (err) setNotice({ t: "err", s: err });
+    else if (ok !== null) setNotice({ t: "ok", s: `تم ربط ${ok} حساب.${params.get("skipped") && params.get("skipped") !== "0" ? ` تخطّينا ${params.get("skipped")} بسبب حد الخطة.` : ""}` });
+    if (ok !== null || err) { setTab("settings"); window.history.replaceState(null, "", "/app"); }
+  }, [params]);
+
+  const loadBase = useCallback(async () => {
+    if (!orgId) return;
+    const [b, a] = await Promise.all([
+      supabase.from("brands").select("*").eq("org_id", orgId).order("created_at"),
+      supabase.from("social_accounts").select("id, platform, handle, status, external_id, avatar_url, brand_id").eq("org_id", orgId).order("created_at"),
+    ]);
+    setBrands((b.data as Brand[]) ?? []);
+    setAllAccounts((a.data as Account[]) ?? []);
+  }, [orgId]);
+  useEffect(() => { setBrandId(""); loadBase(); }, [loadBase]);
+
+  const loadPosts = useCallback(async () => {
+    if (!orgId) return;
+    const from = new Date(month.getFullYear(), month.getMonth(), 1).toISOString();
+    const to = new Date(month.getFullYear(), month.getMonth() + 1, 1).toISOString();
+    const { data } = await supabase.from("posts")
+      .select("id, org_id, account_id, caption, first_comment, scheduled_at, status, post_type, media_urls, error, published_at, external_id, autopilot")
+      .eq("org_id", orgId).gte("scheduled_at", from).lt("scheduled_at", to).order("scheduled_at");
+    setPosts((data as Post[]) ?? []);
+  }, [orgId, month]);
+  useEffect(() => { loadPosts(); }, [loadPosts]);
+  useEffect(() => { const t = setInterval(loadPosts, 60000); return () => clearInterval(t); }, [loadPosts]);
+
+  const accounts = useMemo(() => (brandId ? allAccounts.filter((a) => a.brand_id === brandId) : allAccounts), [allAccounts, brandId]);
+  const visible = useMemo(() => (brandId ? posts.filter((p) => accounts.some((a) => a.id === p.account_id)) : posts), [posts, accounts, brandId]);
   const byDay = useMemo(() => {
     const m = new Map<string, Post[]>();
-    for (const p of posts) {
-      const k = ymd(new Date(p.scheduled_at));
-      m.set(k, [...(m.get(k) ?? []), p]);
-    }
+    for (const p of visible) { const k = ymd(new Date(p.scheduled_at)); m.set(k, [...(m.get(k) ?? []), p]); }
     return m;
-  }, [posts]);
-
-  const accountOf = (id: string | null) => accounts.find((a) => a.id === id);
+  }, [visible]);
 
   if (checking) return <main className="center">لحظة...</main>;
+  if (!org) return <Onboarding email={email} onDone={loadOrgs} />;
 
-  if (!org) return <Onboarding email={email} onDone={loadOrg} />;
+  const ctx: Ctx = {
+    org, userId, email, brands, accounts, allAccounts, brandId, plans,
+    plan: plans.find((p) => p.id === org.plan) ?? null,
+    isAdmin: org.role === "owner" || org.role === "admin",
+    reload: async () => { await Promise.all([loadOrgs(), loadBase(), loadPosts()]); },
+  };
 
   const y = month.getFullYear();
   const mo = month.getMonth();
   const lead = new Date(y, mo, 1).getDay();
-  const days = new Date(y, mo + 1, 0).getDate();
-  const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+  const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: new Date(y, mo + 1, 0).getDate() }, (_, i) => i + 1)];
   while (cells.length % 7 !== 0) cells.push(null);
   const today = ymd(new Date());
   const monthLabel = new Intl.DateTimeFormat("ar-KW-u-nu-latn", { month: "long", year: "numeric" }).format(month);
+  const pending = visible.filter((p) => p.status === "pending").length;
 
   return (
     <>
@@ -121,137 +135,95 @@ export default function AppPage() {
           <span className="logo">م</span>
           <div>
             موعد بوست
-            <small>{org.name}</small>
+            {orgs.length > 1 ? (
+              <select className="inline" value={orgId} onChange={(e) => setOrgId(e.target.value)}>
+                {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            ) : <small>{org.name}</small>}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="row">
+          {brands.length > 0 && (
+            <select className="inline" aria-label="البراند" value={brandId} onChange={(e) => setBrandId(e.target.value)}>
+              <option value="">كل العملاء</option>
+              {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
           <span className="num" style={{ color: "var(--muted)", fontSize: 12 }}>{email}</span>
-          <button
-            className="btn"
-            onClick={async () => {
-              await supabase.auth.signOut();
-              router.replace("/auth");
-            }}
-          >
-            خروج
-          </button>
+          <button className="btn" onClick={async () => { await supabase.auth.signOut(); router.replace("/auth"); }}>خروج</button>
         </div>
       </header>
 
+      <nav className="tabs" aria-label="الأقسام">
+        {TABS.map(([k, l]) => (
+          <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>
+            {l}{k === "calendar" && pending > 0 ? ` (${pending} بانتظار الموافقة)` : ""}
+          </button>
+        ))}
+      </nav>
+
       <div className="page">
-        <div className="toolbar">
-          <div className="accounts">
-            {accounts.map((a) => (
-              <span key={a.id} className="acct" style={{ "--c": PLATFORMS[a.platform].color } as CSSProperties}>
-                <i className="dot" />
-                {PLATFORMS[a.platform].label} · <span className="num">@{a.handle}</span>
-              </span>
-            ))}
-            <button className="btn" onClick={() => setAccountModal(true)}>+ إضافة حساب</button>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button className="btn" aria-label="الشهر السابق" onClick={() => setMonth(new Date(y, mo - 1, 1))}>›</button>
-            <h2 style={{ minWidth: 130, textAlign: "center" }}>{monthLabel}</h2>
-            <button className="btn" aria-label="الشهر التالي" onClick={() => setMonth(new Date(y, mo + 1, 1))}>‹</button>
-          </div>
-        </div>
+        {notice && <div className={`msg ${notice.t}`}>{notice.s}</div>}
 
-        {accounts.length === 0 && (
-          <div className="msg warn">أضف حساباً أولاً لتتمكن من جدولة المنشورات. الربط الفعلي مع إنستغرام وفيسبوك يأتي في الخطوة القادمة، والآن يمكنك إضافة الحساب يدوياً للتجربة.</div>
+        {tab === "calendar" && (
+          <>
+            <div className="toolbar">
+              <div className="accounts">
+                {accounts.map((a) => (
+                  <span key={a.id} className="acct" style={{ "--c": PLATFORMS[a.platform].color } as CSSProperties}>
+                    <i className="dot" />{PLATFORMS[a.platform].label} · <span className="num">@{a.handle}</span>
+                  </span>
+                ))}
+                <button className="btn primary" disabled={accounts.length === 0} onClick={() => setComposeDay(new Date())}>+ منشور جديد</button>
+              </div>
+              <div className="row">
+                <button className="btn" aria-label="الشهر السابق" onClick={() => setMonth(new Date(y, mo - 1, 1))}>›</button>
+                <h2 style={{ minWidth: 130, textAlign: "center" }}>{monthLabel}</h2>
+                <button className="btn" aria-label="الشهر التالي" onClick={() => setMonth(new Date(y, mo + 1, 1))}>‹</button>
+              </div>
+            </div>
+            {allAccounts.length === 0 && (
+              <div className="msg warn">لا توجد حسابات بعد. اذهب إلى «الإعدادات» واضغط «ربط حسابات Meta».</div>
+            )}
+            <div className="cal">
+              <div className="cal-head">{WEEKDAYS.map((w) => <div key={w}>{w}</div>)}</div>
+              <div className="cal-grid">
+                {cells.map((d, i) => {
+                  if (d === null) return <div key={i} className="cell empty" />;
+                  const date = new Date(y, mo, d);
+                  const key = ymd(date);
+                  return (
+                    <div key={i} className={`cell${key === today ? " today" : ""}`}>
+                      <div className="d">
+                        <span className="num">{d}</span>
+                        <button className="add" aria-label={`منشور جديد يوم ${d}`} disabled={accounts.length === 0} onClick={() => setComposeDay(date)}>+</button>
+                      </div>
+                      {(byDay.get(key) ?? []).map((p) => {
+                        const acc = allAccounts.find((a) => a.id === p.account_id);
+                        return (
+                          <button key={p.id} className={`chip ${p.status}${p.autopilot ? " auto" : ""}`} title={STATUS_LABEL[p.status]}
+                            style={{ "--c": acc ? PLATFORMS[acc.platform].color : "var(--muted)" } as CSSProperties} onClick={() => setSelected(p)}>
+                            <span className="num">{hm(p.scheduled_at)}</span> {TYPE_LABEL[p.post_type]} · {p.caption || "بدون نص"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
         )}
-
-        <div className="cal">
-          <div className="cal-head">
-            {WEEKDAYS.map((w) => (
-              <div key={w}>{w}</div>
-            ))}
-          </div>
-          <div className="cal-grid">
-            {cells.map((d, i) => {
-              if (d === null) return <div key={i} className="cell empty" />;
-              const date = new Date(y, mo, d);
-              const key = ymd(date);
-              const list = byDay.get(key) ?? [];
-              return (
-                <div key={i} className={`cell${key === today ? " today" : ""}`}>
-                  <div className="d">
-                    <span className="num">{d}</span>
-                    <button className="add" aria-label={`منشور جديد يوم ${d}`} disabled={accounts.length === 0} onClick={() => setComposeDay(date)}>+</button>
-                  </div>
-                  {list.map((p) => {
-                    const acc = accountOf(p.account_id);
-                    return (
-                      <button
-                        key={p.id}
-                        className={`chip ${p.status}`}
-                        style={{ "--c": acc ? PLATFORMS[acc.platform].color : "var(--muted)" } as CSSProperties}
-                        onClick={() => setSelected(p)}
-                      >
-                        <span className="num">{hm(p.scheduled_at)}</span> {TYPE_LABEL[p.post_type]} · {p.caption || "بدون نص"}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {tab === "autopilot" && <Autopilot ctx={ctx} />}
+        {tab === "analytics" && <Analytics ctx={ctx} />}
+        {tab === "library" && <Library ctx={ctx} />}
+        {tab === "team" && <Team ctx={ctx} />}
+        {tab === "bio" && <Bio ctx={ctx} />}
+        {tab === "settings" && <Settings ctx={ctx} />}
       </div>
 
-      {composeDay && (
-        <Composer
-          org={org}
-          day={composeDay}
-          accounts={accounts}
-          onClose={() => setComposeDay(null)}
-          onSaved={() => {
-            setComposeDay(null);
-            loadData();
-          }}
-        />
-      )}
-      {accountModal && (
-        <AccountForm
-          org={org}
-          onClose={() => setAccountModal(false)}
-          onSaved={() => {
-            setAccountModal(false);
-            loadData();
-          }}
-        />
-      )}
-      {selected && (
-        <div className="overlay" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{TYPE_LABEL[selected.post_type]} {STATUS_LABEL[selected.status]}</h3>
-            {selected.media_urls.length > 0 && (
-              <div className="media-grid">
-                {selected.media_urls.map((u) =>
-                  isVideo(u) ? <video key={u} src={u} controls /> : <img key={u} src={u} alt="" />
-                )}
-              </div>
-            )}
-            <p style={{ whiteSpace: "pre-wrap" }}>{selected.caption || "بدون نص"}</p>
-            <p style={{ color: "var(--muted)" }}>
-              {accountOf(selected.account_id) ? PLATFORMS[accountOf(selected.account_id)!.platform].label : "بدون حساب"} ·{" "}
-              <span className="num">{new Date(selected.scheduled_at).toLocaleString("en-GB")}</span>
-            </p>
-            <div className="actions">
-              <button
-                className="btn"
-                onClick={async () => {
-                  await supabase.from("posts").delete().eq("id", selected.id);
-                  setSelected(null);
-                  loadData();
-                }}
-              >
-                حذف
-              </button>
-              <button className="btn primary" onClick={() => setSelected(null)}>إغلاق</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {composeDay && <Composer ctx={ctx} day={composeDay} onClose={() => setComposeDay(null)} onSaved={() => { setComposeDay(null); loadPosts(); }} />}
+      {selected && <PostModal ctx={ctx} post={selected} onClose={() => setSelected(null)} onChanged={() => { setSelected(null); loadPosts(); }} />}
     </>
   );
 }
@@ -262,199 +234,27 @@ function Onboarding({ email, onDone }: { email: string; onDone: () => void }) {
   const [error, setError] = useState("");
   return (
     <main className="center">
-      <form
-        className="card"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          setError("");
-          const { error } = await supabase.rpc("create_organization", { org_name: name.trim() });
-          if (error) {
-            setError("تعذّر إنشاء الشركة. تأكد من تشغيل ملف schema.sql في Supabase.");
-            setBusy(false);
-          } else onDone();
-        }}
-      >
+      <form className="card" onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setError("");
+        const { error } = await supabase.rpc("create_organization", { org_name: name.trim() });
+        if (error) { setError("تعذّر إنشاء الشركة."); setBusy(false); } else onDone();
+      }}>
         <h1>أهلاً بك</h1>
-        <p className="sub">
-          سجّلت الدخول بـ <span className="num">{email}</span>. ما اسم شركتك؟
-        </p>
+        <p className="sub">سجّلت الدخول بـ <span className="num">{email}</span>. ما اسم شركتك؟</p>
         {error && <div className="msg err">{error}</div>}
-        <div className="field">
-          <label htmlFor="org">اسم الشركة</label>
-          <input id="org" required value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <button className="btn primary" style={{ width: "100%" }} disabled={busy || !name.trim()}>
-          {busy ? "لحظة..." : "ابدأ"}
-        </button>
+        <div className="field"><label htmlFor="org">اسم الشركة</label><input id="org" required value={name} onChange={(e) => setName(e.target.value)} /></div>
+        <button className="btn primary" style={{ width: "100%" }} disabled={busy || !name.trim()}>{busy ? "لحظة..." : "ابدأ"}</button>
       </form>
     </main>
   );
 }
 
-function AccountForm({ org, onClose, onSaved }: { org: Org; onClose: () => void; onSaved: () => void }) {
-  const [platform, setPlatform] = useState<Platform>("instagram");
-  const [handle, setHandle] = useState("");
-  const [error, setError] = useState("");
+export default function AppPage() {
   return (
-    <div className="overlay" onClick={onClose}>
-      <form
-        className="modal"
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const { error } = await supabase
-            .from("social_accounts")
-            .insert({ org_id: org.id, platform, handle: handle.trim().replace(/^@/, "") });
-          if (error) setError("تعذّر حفظ الحساب.");
-          else onSaved();
-        }}
-      >
-        <h3>إضافة حساب</h3>
-        <div className="msg warn">إضافة يدوية للتجربة فقط. الربط الفعلي مع Meta يأتي في الخطوة القادمة.</div>
-        {error && <div className="msg err">{error}</div>}
-        <div className="field">
-          <label htmlFor="platform">المنصة</label>
-          <select id="platform" value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>
-            {(Object.keys(PLATFORMS) as Platform[]).map((k) => (
-              <option key={k} value={k}>{PLATFORMS[k].label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="handle">اسم الحساب</label>
-          <input id="handle" dir="ltr" required placeholder="mawidpost" value={handle} onChange={(e) => setHandle(e.target.value)} />
-        </div>
-        <div className="actions">
-          <button type="button" className="btn" onClick={onClose}>إلغاء</button>
-          <button className="btn primary">حفظ</button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function Composer({
-  org, day, accounts, onClose, onSaved,
-}: { org: Org; day: Date; accounts: Account[]; onClose: () => void; onSaved: () => void }) {
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
-  const [postType, setPostType] = useState<PostType>("post");
-  const [caption, setCaption] = useState("");
-  const [when, setWhen] = useState(`${ymd(day)}T10:00`);
-  const [files, setFiles] = useState<File[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  const previews = useMemo(() => files.map((f) => ({ name: f.name, url: URL.createObjectURL(f), video: f.type.startsWith("video/") })), [files]);
-  useEffect(() => () => previews.forEach((p) => URL.revokeObjectURL(p.url)), [previews]);
-
-  function pick(list: FileList | null) {
-    if (!list) return;
-    const next = postType === "post" ? [...files, ...Array.from(list)].slice(0, 10) : Array.from(list).slice(0, 1);
-    setFiles(next);
-  }
-
-  function changeType(t: PostType) {
-    setPostType(t);
-    if (t !== "post") setFiles((f) => f.slice(0, 1));
-  }
-
-  async function save(asDraft: boolean) {
-    setError("");
-    if (!asDraft) {
-      if (postType !== "post" && files.length === 0) return setError("الستوري والريلز يحتاجان صورة أو فيديو.");
-      if (postType === "reel" && !files[0]?.type.startsWith("video/")) return setError("الريلز يجب أن يكون فيديو.");
-      if (postType === "post" && files.length === 0 && !caption.trim()) return setError("أضف نصاً أو صورة.");
-    }
-    setBusy(true);
-    const urls: string[] = [];
-    for (const f of files) {
-      const ext = (f.name.split(".").pop() ?? "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const path = `${org.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("media").upload(path, f, { contentType: f.type });
-      if (upErr) {
-        setBusy(false);
-        return setError("تعذّر رفع الملف. تأكد من تشغيل migration-media.sql في Supabase.");
-      }
-      urls.push(supabase.storage.from("media").getPublicUrl(path).data.publicUrl);
-    }
-    const { error } = await supabase.from("posts").insert({
-      org_id: org.id,
-      account_id: accountId || null,
-      caption,
-      post_type: postType,
-      media_urls: urls,
-      media_url: urls[0] ?? null,
-      scheduled_at: new Date(when).toISOString(),
-      status: asDraft ? "draft" : "scheduled",
-    });
-    setBusy(false);
-    if (error) setError("تعذّر حفظ المنشور.");
-    else onSaved();
-  }
-
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>منشور جديد</h3>
-        {error && <div className="msg err">{error}</div>}
-        <div className="field">
-          <label htmlFor="acct">الحساب</label>
-          <select id="acct" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{PLATFORMS[a.platform].label} — @{a.handle}</option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label>النوع</label>
-          <div className="seg">
-            {(Object.keys(TYPE_LABEL) as PostType[]).map((t) => (
-              <button key={t} type="button" className={postType === t ? "on" : ""} onClick={() => changeType(t)}>
-                {TYPE_LABEL[t]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="field">
-          <label htmlFor="media">
-            {postType === "post" ? "الصور / الفيديو (حتى 10)" : postType === "story" ? "صورة أو فيديو الستوري" : "فيديو الريلز"}
-          </label>
-          <input
-            id="media"
-            type="file"
-            accept={postType === "reel" ? "video/*" : "image/*,video/*"}
-            multiple={postType === "post"}
-            onChange={(e) => {
-              pick(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          {previews.length > 0 && (
-            <div className="media-grid">
-              {previews.map((p, i) => (
-                <div key={p.url} className="thumb">
-                  {p.video ? <video src={p.url} muted /> : <img src={p.url} alt={p.name} />}
-                  <button type="button" aria-label="إزالة" onClick={() => setFiles(files.filter((_, j) => j !== i))}>×</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="field">
-          <label htmlFor="caption">النص</label>
-          <textarea id="caption" value={caption} onChange={(e) => setCaption(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="when">موعد النشر</label>
-          <input id="when" type="datetime-local" dir="ltr" value={when} onChange={(e) => setWhen(e.target.value)} />
-        </div>
-        <div className="actions">
-          <button className="btn" onClick={onClose} disabled={busy}>إلغاء</button>
-          <button className="btn" onClick={() => save(true)} disabled={busy}>حفظ كمسودة</button>
-          <button className="btn primary" onClick={() => save(false)} disabled={busy || !when}>{busy ? "جاري الرفع..." : "جدولة"}</button>
-        </div>
-      </div>
-    </div>
+    <Suspense fallback={null}>
+      <AppInner />
+    </Suspense>
   );
 }

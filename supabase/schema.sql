@@ -34,7 +34,7 @@ create table posts (
   media_url text,
   scheduled_at timestamptz not null,
   status text not null default 'scheduled' check (status in ('draft', 'scheduled', 'published', 'failed')),
-  created_by uuid default auth.uid() references auth.users(id),
+  created_by uuid default auth.uid() references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
