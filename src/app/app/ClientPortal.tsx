@@ -18,7 +18,11 @@ const TABS: [Tab, string][] = [
 const COLS = "id, org_id, account_id, caption, first_comment, scheduled_at, status, post_type, media_urls, error, published_at, external_id, autopilot, for_client";
 
 export default function ClientPortal({ ctx, onSignOut }: { ctx: Ctx; onSignOut: () => void }) {
-  const [brandId, setBrandId] = useState(ctx.brands[0]?.id ?? "");
+  const [brandId, setBrandId] = useState("");
+  // brands arrive after the first render, so pick one as soon as they are loaded
+  useEffect(() => {
+    if (!ctx.brands.some((b) => b.id === brandId)) setBrandId(ctx.brands[0]?.id ?? "");
+  }, [ctx.brands, brandId]);
   const [tab, setTab] = useState<Tab>("home");
   const [month, setMonth] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
   const [posts, setPosts] = useState<Post[]>([]);
