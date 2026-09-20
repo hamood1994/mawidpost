@@ -11,9 +11,9 @@ import type { Ctx } from "./ctx";
 import Preview from "./Preview";
 import Analytics from "./Analytics";
 
-type Tab = "home" | "approvals" | "calendar" | "plan" | "analytics" | "materials";
+type Tab = "home" | "approvals" | "calendar" | "plan" | "analytics" | "bio" | "materials";
 const TABS: [Tab, string][] = [
-  ["home", "الرئيسية"], ["approvals", "الموافقات"], ["calendar", "التقويم"], ["plan", "الخطة"], ["analytics", "التحليلات"], ["materials", "أرسل لنا مواد"],
+  ["home", "الرئيسية"], ["approvals", "الموافقات"], ["calendar", "التقويم"], ["plan", "الخطة"], ["analytics", "التحليلات"], ["bio", "صفحة الروابط"], ["materials", "أرسل لنا مواد"],
 ];
 const COLS = "id, org_id, account_id, caption, first_comment, scheduled_at, status, post_type, media_urls, error, published_at, external_id, autopilot, for_client";
 
@@ -137,6 +137,7 @@ export default function ClientPortal({ ctx, onSignOut }: { ctx: Ctx; onSignOut: 
 
         {tab === "analytics" && <Analytics ctx={{ ...ctx, accounts }} simple />}
 
+        {tab === "bio" && <BioView brandId={brandId} brandName={brand.name} />}
         {tab === "materials" && <Materials ctx={ctx} brandId={brandId} />}
       </div>
 
@@ -362,5 +363,37 @@ function Materials({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
         </div>
       </div>
     </>
+  );
+}
+
+interface BioRow { slug: string; title: string; bio: string; avatar_url: string | null; links: { title: string; url: string }[] }
+
+function BioView({ brandId, brandName }: { brandId: string; brandName: string }) {
+  const [row, setRow] = useState<BioRow | null | undefined>(undefined);
+  useEffect(() => {
+    setRow(undefined);
+    supabase.from("bio_pages").select("slug, title, bio, avatar_url, links").eq("brand_id", brandId).maybeSingle().then(({ data }) => setRow((data as BioRow | null) ?? null));
+  }, [brandId]);
+  return (
+    <div className="panel">
+      <h3>صفحة الروابط: {brandName}</h3>
+      {row === undefined && <p className="hint">جارٍ التحميل…</p>}
+      {row === null && <p className="hint">لم تُجهَّز صفحة الروابط لحسابكم بعد. سيضيفها الفريق قريباً.</p>}
+      {row && (
+        <>
+          <p className="hint">هذه صفحة الروابط الخاصة بكم للعرض فقط. للتعديل تواصلوا مع الفريق.</p>
+          <div className="row" style={{ marginBottom: 10 }}>
+            {row.avatar_url && <img src={row.avatar_url} alt="" width={64} height={64} style={{ borderRadius: "50%", objectFit: "cover" }} />}
+            <div><b>{row.title}</b><p className="hint" style={{ margin: 0 }}>{row.bio}</p></div>
+          </div>
+          <div className="list">
+            {row.links.map((l, i) => <div key={i}><span>{l.title}</span><a dir="ltr" href={l.url} target="_blank" rel="noreferrer">{l.url}</a></div>)}
+          </div>
+          <div className="actions" style={{ justifyContent: "flex-start" }}>
+            <a className="btn primary" href={`/l/${row.slug}`} target="_blank" rel="noreferrer">فتح الصفحة</a>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

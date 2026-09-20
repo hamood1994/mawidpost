@@ -137,12 +137,7 @@ export async function runAutopilot(
         await note(`${acc.handle}: النشر التلقائي متاح لإنستغرام وفيسبوك فقط`);
         continue;
       }
-      // Not linked to Meta yet: still build the plan when it needs approval, so the client can review it now.
-      // Posts wait for approval; actual publishing needs the account to be linked by then.
-      if ((!acc.external_id || acc.status !== "connected") && !rule.approval) {
-        await note(`${acc.handle}: الحساب غير مربوط مع Meta (فعّل «موافقة» في القاعدة لتظهر المنشورات للمراجعة قبل الربط)`);
-        continue;
-      }
+      // Unlinked accounts still get plans: everything waits for approval, publishing needs the link by then.
       const { data: brand } = await db.from("brands").select("*").eq("id", rule.brand_id).maybeSingle();
       if (!brand) continue;
 
@@ -234,8 +229,8 @@ export async function runAutopilot(
           media_url: pick?.url ?? null,
           post_type: rule.post_type,
           scheduled_at: slot.toISOString(),
-          status: rule.approval ? "pending" : "scheduled",
-          for_client: rule.approval && Boolean(rule.send_to_client),
+          status: "pending",
+          for_client: false,
           autopilot: true,
         });
         if (error) {

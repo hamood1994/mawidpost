@@ -68,7 +68,7 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
 
   async function saveRule(r: Rule) {
     const { error } = await supabase.from("autopilot_rules").upsert(
-      { org_id: ctx.org.id, brand_id: brandId, account_id: r.account_id, enabled: r.enabled, days: r.days, times: r.times, post_type: r.post_type, approval: r.approval, send_to_client: r.send_to_client ?? false, text_only_ok: r.text_only_ok },
+      { org_id: ctx.org.id, brand_id: brandId, account_id: r.account_id, enabled: r.enabled, days: r.days, times: r.times, post_type: r.post_type, approval: true, send_to_client: false, text_only_ok: r.text_only_ok },
       { onConflict: "account_id" }
     );
     if (error) setMsg({ t: "err", s: friendly(error.message) });
@@ -187,14 +187,13 @@ function RuleCard({ account, rule, onSave, chain }: { account: Account; rule: Ru
   const [times, setTimes] = useState(rule.times.join(", "));
   useEffect(() => { setR(rule); setTimes(rule.times.join(", ")); }, [rule.enabled, rule.days.join(), rule.times.join(), rule.post_type, rule.approval, rule.send_to_client, rule.text_only_ok]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleDay = (d: number) => setR({ ...r, days: r.days.includes(d) ? r.days.filter((x) => x !== d) : [...r.days, d].sort() });
-  const approvalMode: "none" | "me" | "client" = !r.approval ? "none" : r.send_to_client ? "client" : "me";
   const listTimes = times.split(/[,،\s]+/).map((t) => t.trim()).filter((t) => /^\d{1,2}:\d{2}$/.test(t));
   const summary =
     (r.enabled ? "" : "متوقفة الآن. ") +
     (r.days.length === 0
       ? "اختر يوماً واحداً على الأقل."
       : `سينشر ${TYPE_LABEL[r.post_type]} على @${account.handle} كل ${[...r.days].sort().map((d) => WEEKDAYS[d]).join("، ")} الساعة ${(listTimes.length ? listTimes : ["19:00"]).join(" و ")} (توقيت الكويت)، ` +
-        (approvalMode === "none" ? "مباشرة بدون موافقة." : approvalMode === "me" ? (chain ? "بعد موافقتك أولاً، ثم موافقة العميل." : "بعد موافقتك.") : "بعد موافقة العميل."));
+        (chain ? "بعد موافقتك أولاً، ثم موافقة العميل." : "بعد موافقتك."));
 
   return (
     <div className="panel" style={{ background: "var(--bg)" }}>
@@ -227,15 +226,7 @@ function RuleCard({ account, rule, onSave, chain }: { account: Account; rule: Ru
           </select>
         </div>
       </div>
-      <div className="field">
-        <label>من يوافق قبل النشر؟</label>
-        <div className="seg">
-          {([["none", "لا أحد (ينشر مباشرة)"], ["me", chain ? "موافقتي ثم العميل" : "موافقتي أنا"], ["client", "موافقة العميل"]] as const).map(([k, l]) => (
-            <button type="button" key={k} className={approvalMode === k ? "on" : ""} onClick={() => setR({ ...r, approval: k !== "none", send_to_client: k === "client" })}>{l}</button>
-          ))}
-        </div>
-        {approvalMode === "client" && <p className="hint" style={{ margin: "6px 0 0" }}>يظهر المنشور في بوابة العميل، ولا ينشر إلا بعد موافقته. لازم تكون دعوت العميل من «الفريق والعملاء».</p>}
-      </div>
+      <p className="hint" style={{ margin: "0 0 10px" }}>{chain ? "كل منشور يصلك أولاً في التقويم، وبعد ما توافق عليه يروح للعميل، وبعد موافقة العميل يُنشر." : "كل منشور يصلك أولاً في التقويم، وبعد ما توافق عليه يُجدول ويُنشر."}</p>
       {account.platform === "facebook" && (
         <div className="row">
           <label className={`check${r.text_only_ok ? " on" : ""}`}>
@@ -271,7 +262,6 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
   const [everyDays, setEveryDays] = useState(1);
   const [postType, setPostType] = useState<PostType>("post");
   const [sel, setSel] = useState<string[]>([]);
-  const [review, setReview] = useState<"none" | "me" | "client">("none");
   const previews = useMemo(() => drafts.map((d) => URL.createObjectURL(d.file)), [drafts]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
@@ -338,13 +328,13 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
           for (const accId of picked) {
             rows.push({
               org_id: ctx.org.id, account_id: accId, caption: u.d.caption, post_type: postType, media_urls: [u.url, ...u.extra], media_url: u.url,
-              scheduled_at: base.toISOString(), status: review === "none" ? "scheduled" : "pending", for_client: review === "client",
+              scheduled_at: base.toISOString(), status: "pending", for_client: false,
             });
           }
         });
         const { error } = await supabase.from("posts").insert(rows);
         if (error) throw new Error(error.message);
-        onDone(review === "client" ? `أُرسل ${rows.length} منشور لموافقة العميل، وسيراها في بوابته.` : review === "me" ? `أُضيف ${rows.length} منشور بانتظار موافقتك في التقويم.` : `تمت جدولة ${rows.length} منشور. ستراها في التقويم وتُنشر تلقائياً.`);
+        onDone(`أُضيف ${rows.length} منشور، وهي بانتظار موافقتك في التقويم.`);
       }
       setDrafts([]);
       setSel([]);
@@ -427,15 +417,7 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
                   {(Object.keys(TYPE_LABEL) as PostType[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
                 </select>
               </div>
-              <div className="field">
-                <label>الموافقة قبل النشر</label>
-                <div className="seg">
-                  {([["none", "بدون"], ["me", "موافقتي"], ["client", "موافقة العميل"]] as const).map(([k, l]) => (
-                    <button type="button" key={k} className={review === k ? "on" : ""} onClick={() => setReview(k)}>{l}</button>
-                  ))}
-                </div>
-                {review !== "none" && <p className="hint" style={{ margin: "6px 0 0" }}>{review === "client" ? "تظهر في بوابة العميل ليوافق أو يطلب تعديلاً، حتى لو الحساب غير مربوط مع Meta بعد." : "تنتظر موافقتك في التقويم قبل الجدولة."}</p>}
-              </div>
+              <p className="hint">كل منشور يصلك أولاً للموافقة في التقويم، وبعدها يروح للعميل حسب إعدادات البراند.</p>
               <div className="field">
                 <label>أول تصميم ينزل في</label>
                 <input type="datetime-local" dir="ltr" value={start} onChange={(e) => setStart(e.target.value)} />
