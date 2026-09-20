@@ -49,7 +49,7 @@ export default function Home() {
               <Link className="btn primary lg" href="/auth?mode=signup">ابدأ الآن</Link>
               <Link className="btn lg" href="/#how">شاهد كيف يعمل</Link>
             </div>
-            <p className="s-note">بدون بطاقة ائتمان للبدء</p>
+            <p className="s-note">تجربة مجانية 14 يوماً · بدون بطاقة ائتمان</p>
           </div>
           <div className="s-mock" aria-hidden="true">
             <div className="s-mock-top"><i /><i /><i /></div>

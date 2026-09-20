@@ -4,7 +4,7 @@ import { admin, fail, requirePlatformAdmin } from "@/lib/server/admin";
 export const dynamic = "force-dynamic";
 
 interface OrgOut {
-  id: string; name: string; plan: string; suspended: boolean; created_at: string; owner_email: string;
+  id: string; name: string; plan: string; suspended: boolean; trial_ends_at: string | null; created_at: string; owner_email: string;
   staff: number; clients: number; accounts: number; posts_month: number; published_month: number; failed_month: number;
 }
 
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
     const [orgs, members, accounts, posts, plans, users, failed] = await Promise.all([
-      db.from("organizations").select("id, name, plan, suspended, created_at").order("created_at", { ascending: false }),
+      db.from("organizations").select("id, name, plan, suspended, trial_ends_at, created_at").order("created_at", { ascending: false }),
       db.from("members").select("org_id, user_id, role"),
       db.from("social_accounts").select("org_id, platform, status"),
       db.from("posts").select("org_id, status").gte("scheduled_at", monthStart).limit(50000),
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     const emailOf = new Map<string, string>();
     for (const u of users.data?.users ?? []) emailOf.set(u.id, u.email ?? "");
 
-    const rows: OrgOut[] = (orgs.data ?? []).map((o: { id: string; name: string; plan: string; suspended: boolean; created_at: string }) => {
+    const rows: OrgOut[] = (orgs.data ?? []).map((o: { id: string; name: string; plan: string; suspended: boolean; trial_ends_at: string | null; created_at: string }) => {
       const ms = (members.data ?? []).filter((m: { org_id: string }) => m.org_id === o.id) as { user_id: string; role: string }[];
       const ps = (posts.data ?? []).filter((p: { org_id: string }) => p.org_id === o.id) as { status: string }[];
       return {

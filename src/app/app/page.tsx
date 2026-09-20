@@ -49,8 +49,8 @@ function AppInner() {
   const org = orgs.find((o) => o.id === orgId) ?? null;
 
   const loadOrgs = useCallback(async () => {
-    const { data } = await supabase.from("members").select("role, organizations(id, name, plan, suspended)");
-    const list: Org[] = ((data as any[]) ?? []).filter((r) => r.organizations).map((r) => ({ id: r.organizations.id, name: r.organizations.name, plan: r.organizations.plan, suspended: r.organizations.suspended, role: r.role as Role }));
+    const { data } = await supabase.from("members").select("role, organizations(id, name, plan, suspended, trial_ends_at)");
+    const list: Org[] = ((data as any[]) ?? []).filter((r) => r.organizations).map((r) => ({ id: r.organizations.id, name: r.organizations.name, plan: r.organizations.plan, suspended: r.organizations.suspended, trial_ends_at: r.organizations.trial_ends_at, role: r.role as Role }));
     setOrgs(list);
     setOrgId((cur) => {
       if (cur && list.some((o) => o.id === cur)) return cur;
@@ -131,6 +131,12 @@ function AppInner() {
       <main className="center"><div className="card"><h1>الحساب موقوف</h1><p className="sub">تم إيقاف هذا الحساب مؤقتاً. تواصل مع الدعم لإعادة تفعيله.</p><button className="btn" onClick={signOut}>خروج</button></div></main>
     );
   }
+  const trialLeft = org.plan === "starter" && org.trial_ends_at ? Math.ceil((new Date(org.trial_ends_at).getTime() - Date.now()) / 86400000) : null;
+  if (trialLeft !== null && trialLeft <= 0 && !isPlatformAdmin) {
+    return (
+      <main className="center"><div className="card"><h1>انتهت الفترة التجريبية</h1><p className="sub">انتهت تجربتك المجانية (14 يوماً). بياناتك محفوظة، وتواصل معنا لترقية باقتك ومتابعة النشر التلقائي.</p><div className="row"><a className="btn primary" href="/contact">تواصل معنا</a><button className="btn" onClick={signOut}>خروج</button></div></div></main>
+    );
+  }
   if (org.role === "client") return <ClientPortal ctx={ctx} onSignOut={signOut} />;
 
   const visibleTabs = TABS.filter(([k]) => ctx.isAdmin || k === "calendar" || k === "analytics" || k === "library" || k === "plans");
@@ -180,6 +186,7 @@ function AppInner() {
       </nav>
 
       <div className="page">
+        {trialLeft !== null && trialLeft > 0 && ctx.isAdmin && <div className="msg warn">تجربتك المجانية تنتهي بعد {trialLeft} {trialLeft === 1 ? "يوم" : "أيام"}. <a href="/contact" style={{ textDecoration: "underline" }}>تواصل معنا للترقية</a>.</div>}
         {notice && <div className={`msg ${notice.t}`}>{notice.s}</div>}
 
         {tab === "calendar" && (

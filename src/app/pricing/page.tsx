@@ -15,7 +15,7 @@ export default function Pricing() {
       <section className="s-sec">
         <div className="s-wrap">
           <h1 className="s-h1">الباقات</h1>
-          <p className="s-sub">اختر الباقة المناسبة لحجم وكالتك. الأسعار النهائية تُحدَّد عند التواصل معنا، وأي باقة يمكن ترقيتها لاحقاً.</p>
+          <p className="s-sub">ابدأ بتجربة مجانية 14 يوماً على باقة Starter بدون بطاقة ائتمان، ثم اختر الباقة المناسبة لحجم وكالتك. الأسعار النهائية تُحدَّد عند التواصل معنا، وأي باقة يمكن ترقيتها لاحقاً.</p>
           <div className="s-grid three">
             {plans.map((p) => (
               <div key={p.name} className={`s-card plan${p.hot ? " hot" : ""}`}>

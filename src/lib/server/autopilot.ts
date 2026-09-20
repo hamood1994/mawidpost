@@ -115,7 +115,7 @@ export async function runAutopilot(
   if (opts.orgId) q = q.eq("org_id", opts.orgId);
   if (opts.brandId) q = q.eq("brand_id", opts.brandId);
   const { data: allRules } = await q;
-  const { data: susp } = await db.from("organizations").select("id").eq("suspended", true);
+  const { data: susp } = await db.from("organizations").select("id").or(`suspended.eq.true,and(plan.eq.starter,trial_ends_at.lt.${new Date().toISOString()})`);
   const suspended = new Set(((susp ?? []) as { id: string }[]).map((o) => o.id));
   const rules = (allRules ?? []).filter((r: { org_id: string }) => !suspended.has(r.org_id));
 

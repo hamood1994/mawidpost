@@ -7,11 +7,12 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     await requirePlatformAdmin(req);
-    const b = (await req.json()) as { orgId?: string; plan?: string; suspended?: boolean };
+    const b = (await req.json()) as { orgId?: string; plan?: string; suspended?: boolean; trialDays?: number };
     if (!b.orgId) throw new HttpError(400, "orgId مطلوب");
     const patch: Record<string, unknown> = {};
     if (typeof b.plan === "string") patch.plan = b.plan;
     if (typeof b.suspended === "boolean") patch.suspended = b.suspended;
+    if (typeof b.trialDays === "number" && b.trialDays > 0 && b.trialDays <= 365) patch.trial_ends_at = new Date(Date.now() + b.trialDays * 86400000).toISOString();
     if (Object.keys(patch).length === 0) throw new HttpError(400, "لا يوجد تغيير");
     const { error } = await admin().from("organizations").update(patch).eq("id", b.orgId);
     if (error) throw new HttpError(400, error.message);

@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { friendly } from "@/lib/shared";
 
 interface OrgRow {
-  id: string; name: string; plan: string; suspended: boolean; created_at: string; owner_email: string;
+  id: string; name: string; plan: string; suspended: boolean; trial_ends_at: string | null; created_at: string; owner_email: string;
   staff: number; clients: number; accounts: number; posts_month: number; published_month: number; failed_month: number;
 }
 interface Overview {
@@ -32,7 +32,7 @@ export default function AdminPage() {
     });
   }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function patch(orgId: string, body: { plan?: string; suspended?: boolean }) {
+  async function patch(orgId: string, body: { plan?: string; suspended?: boolean; trialDays?: number }) {
     try { await api("/api/admin/org", { body: { orgId, ...body } }); load(); } catch (e) { setErr(friendly((e as Error).message)); }
   }
 
@@ -74,6 +74,12 @@ export default function AdminPage() {
                       <select className="inline" value={o.plan} onChange={(e) => patch(o.id, { plan: e.target.value })}>
                         {data.plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
+                      {o.plan === "starter" && o.trial_ends_at && (
+                        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                          {new Date(o.trial_ends_at).getTime() < Date.now() ? "انتهت التجربة" : `تنتهي ${new Date(o.trial_ends_at).toLocaleDateString("en-GB")}`}
+                          {" "}<button className="btn sm" onClick={() => patch(o.id, { trialDays: 14 })}>+14 يوم</button>
+                        </div>
+                      )}
                     </td>
                     <td className="num">{o.staff}</td>
                     <td className="num">{o.clients}</td>

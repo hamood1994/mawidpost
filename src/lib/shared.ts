@@ -3,7 +3,7 @@ export type Status = "draft" | "pending" | "scheduled" | "publishing" | "publish
 export type PostType = "post" | "story" | "reel";
 export type Role = "owner" | "admin" | "editor" | "client";
 
-export interface Org { id: string; name: string; plan: string; role: Role; suspended?: boolean }
+export interface Org { id: string; name: string; plan: string; role: Role; suspended?: boolean; trial_ends_at?: string | null }
 export interface Account { id: string; platform: Platform; handle: string; status: string; external_id: string | null; avatar_url: string | null; brand_id: string | null }
 export interface Post {
   id: string; org_id: string; account_id: string | null; caption: string; first_comment: string | null;
