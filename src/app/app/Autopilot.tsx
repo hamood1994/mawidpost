@@ -105,9 +105,14 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
         <div className="row between">
           <div>
             <h3>الأوتوبايلوت — {brand.name}</h3>
-            <p className="hint">ارفع التصاميم مع الكابشنات، حدّد الأيام والأوقات لكل حساب، والنظام ينشر لوحده حسب المواعيد. الذكاء الاصطناعي يكتب فقط للتصاميم التي بلا كابشن.</p>
+            <p className="hint">النشر التلقائي بثلاث خطوات:</p>
           </div>
-          <button className="btn primary" onClick={runNow} disabled={running}>{running ? "جاري التوليد..." : "ولّد الجدول الآن"}</button>
+          <button className="btn primary" onClick={runNow} disabled={running} title="ينشئ المنشورات القادمة فوراً بدل انتظار الفحص الساعي">{running ? "جاري التوليد..." : "ولّد الجدول الآن"}</button>
+        </div>
+        <div className="steps3">
+          <div><span className="n">1</span><b>ارفع التصاميم</b><small>مع الكابشنات، في الصندوق التالي. هذا «المخزن».</small></div>
+          <div><span className="n">2</span><b>حدّد الموعد</b><small>لكل حساب: الأيام والساعة ومن يوافق. ثم زر «حفظ».</small></div>
+          <div><span className="n">3</span><b>فعّل القاعدة</b><small>اضغط «متوقف» ليصير «مفعّل»، وبعدها النظام ينشر لوحده.</small></div>
         </div>
       </div>
 
@@ -115,7 +120,7 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
 
       <div className="panel">
         <h3>القواعد لكل حساب</h3>
-        <p className="hint">الأوقات بتوقيت الكويت. عند إيقاف «يحتاج موافقة» ينشر النظام بدون مراجعة.</p>
+        <p className="hint">كل بطاقة = حساب واحد. الأوقات بتوقيت الكويت. لا تنسَ «حفظ» أسفل كل بطاقة.</p>
         {accounts.length === 0 && <div className="msg warn">لا توجد حسابات مربوطة بهذا البراند. اربط الحسابات وحدّد البراند من «الإعدادات».</div>}
         <div className="grid2">
           {accounts.map((a) => (
@@ -182,6 +187,15 @@ function RuleCard({ account, rule, onSave }: { account: Account; rule: Rule; onS
   const [times, setTimes] = useState(rule.times.join(", "));
   useEffect(() => { setR(rule); setTimes(rule.times.join(", ")); }, [rule.enabled, rule.days.join(), rule.times.join(), rule.post_type, rule.approval, rule.send_to_client, rule.text_only_ok]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleDay = (d: number) => setR({ ...r, days: r.days.includes(d) ? r.days.filter((x) => x !== d) : [...r.days, d].sort() });
+  const approvalMode: "none" | "me" | "client" = !r.approval ? "none" : r.send_to_client ? "client" : "me";
+  const listTimes = times.split(/[,،\s]+/).map((t) => t.trim()).filter((t) => /^\d{1,2}:\d{2}$/.test(t));
+  const summary =
+    (r.enabled ? "" : "متوقفة الآن. ") +
+    (r.days.length === 0
+      ? "اختر يوماً واحداً على الأقل."
+      : `سينشر ${TYPE_LABEL[r.post_type]} على @${account.handle} كل ${[...r.days].sort().map((d) => WEEKDAYS[d]).join("، ")} الساعة ${(listTimes.length ? listTimes : ["19:00"]).join(" و ")} (توقيت الكويت)، ` +
+        (approvalMode === "none" ? "مباشرة بدون موافقة." : approvalMode === "me" ? "بعد موافقتك." : "بعد موافقة العميل."));
+
   return (
     <div className="panel" style={{ background: "var(--bg)" }}>
       <div className="row between">
@@ -213,21 +227,24 @@ function RuleCard({ account, rule, onSave }: { account: Account; rule: Rule; onS
           </select>
         </div>
       </div>
-      <div className="row">
-        <label className={`check${r.approval ? " on" : ""}`}>
-          <input type="checkbox" checked={r.approval} onChange={(e) => setR({ ...r, approval: e.target.checked })} />يحتاج موافقة قبل النشر
-        </label>
-        {r.approval && (
-          <label className={`check${r.send_to_client ? " on" : ""}`}>
-            <input type="checkbox" checked={r.send_to_client ?? false} onChange={(e) => setR({ ...r, send_to_client: e.target.checked })} />الموافقة من العميل نفسه
-          </label>
-        )}
-        {account.platform === "facebook" && (
-          <label className={`check${r.text_only_ok ? " on" : ""}`}>
-            <input type="checkbox" checked={r.text_only_ok} onChange={(e) => setR({ ...r, text_only_ok: e.target.checked })} />نص فقط إذا انتهت التصاميم
-          </label>
-        )}
+      <div className="field">
+        <label>من يوافق قبل النشر؟</label>
+        <div className="seg">
+          {([["none", "لا أحد (ينشر مباشرة)"], ["me", "موافقتي أنا"], ["client", "موافقة العميل"]] as const).map(([k, l]) => (
+            <button type="button" key={k} className={approvalMode === k ? "on" : ""} onClick={() => setR({ ...r, approval: k !== "none", send_to_client: k === "client" })}>{l}</button>
+          ))}
+        </div>
+        {approvalMode === "client" && <p className="hint" style={{ margin: "6px 0 0" }}>يظهر المنشور في بوابة العميل، ولا ينشر إلا بعد موافقته. لازم تكون دعوت العميل من «الفريق والعملاء».</p>}
       </div>
+      {account.platform === "facebook" && (
+        <div className="row">
+          <label className={`check${r.text_only_ok ? " on" : ""}`}>
+            <input type="checkbox" checked={r.text_only_ok} onChange={(e) => setR({ ...r, text_only_ok: e.target.checked })} />انشر نصاً فقط إذا انتهت التصاميم
+          </label>
+        </div>
+      )}
+      <div className="msg" style={{ background: "var(--soft)", marginTop: 10 }}>{summary}</div>
+      {!account.external_id && <div className="msg warn">هذا الحساب غير مربوط مع Meta بعد، لذلك لن ينشر فعلياً حتى تربطه من «الإعدادات».</div>}
       {rule.last_note && <p className="hint" style={{ marginTop: 8 }}>آخر تشغيل: {rule.last_note}</p>}
       <div className="actions">
         <button
