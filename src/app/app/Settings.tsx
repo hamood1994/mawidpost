@@ -82,7 +82,7 @@ export default function Settings({ ctx }: { ctx: Ctx }) {
 
       <div className="panel">
         <h3>الخطة</h3>
-        <p className="hint">خطتك الحالية: <b>{ctx.plan?.name}</b>. الدفع الإلكتروني قيد التجهيز، ويمكن للمالك تجربة الخطط الآن.</p>
+        <p className="hint">خطتك الحالية: <b>{ctx.plan?.name}</b>. الدفع الإلكتروني قيد التجهيز. للترقية تواصل معنا وسنفعّل الباقة لك.</p>
         <div className="grid2">
           {ctx.plans.map((p) => (
             <div key={p.id} className="panel" style={{ background: p.id === ctx.org.plan ? "var(--soft)" : undefined }}>
@@ -93,9 +93,7 @@ export default function Settings({ ctx }: { ctx: Ctx }) {
                 <li>أوتوبايلوت: {p.autopilot_posts} منشور شهرياً · {p.ai_credits} رصيد ذكاء اصطناعي</li>
                 <li>{p.approvals ? "سير موافقات" : "بدون سير موافقات"}</li>
               </ul>
-              {isOwner && p.id !== ctx.org.plan && (
-                <button className="btn sm" onClick={async () => { const { error } = await supabase.rpc("set_org_plan", { o: ctx.org.id, p: p.id }); setMsg(error ? { t: "err", s: friendly(error.message) } : null); ctx.reload(); }}>اختيار</button>
-              )}
+              {isOwner && p.id !== ctx.org.plan && <a className="btn sm" href="/contact">تواصل للترقية</a>}
             </div>
           ))}
         </div>
