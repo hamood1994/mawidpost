@@ -1,12 +1,13 @@
 import Link from "next/link";
+import SiteShell from "@/components/SiteShell";
 import { CONTACT_EMAIL, LAST_UPDATED, OPERATOR, SITE_NAME } from "@/lib/site";
 
 export const metadata = { title: "شروط الاستخدام | Terms of Service" };
 
 export default function Terms() {
   return (
+    <SiteShell>
     <main className="doc">
-      <p><Link href="/">← {SITE_NAME}</Link></p>
       <h1>شروط الاستخدام</h1>
       <p className="muted">آخر تحديث: {LAST_UPDATED}</p>
 
@@ -46,5 +47,6 @@ export default function Terms() {
         <p>{CONTACT_EMAIL}</p>
       </div>
     </main>
+    </SiteShell>
   );
 }

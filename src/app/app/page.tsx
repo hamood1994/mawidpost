@@ -18,6 +18,7 @@ import Bio from "./Bio";
 import Settings from "./Settings";
 import Plans from "./Plans";
 import ClientPortal from "./ClientPortal";
+import Guide from "./Guide";
 
 type Tab = "calendar" | "autopilot" | "analytics" | "plans" | "library" | "team" | "bio" | "settings";
 const TABS: [Tab, string][] = [
@@ -183,6 +184,7 @@ function AppInner() {
 
         {tab === "calendar" && (
           <>
+            {ctx.isAdmin && <Guide ctx={ctx} onGo={setTab} />}
             <div className="toolbar">
               <div className="accounts">
                 {accounts.map((a) => (

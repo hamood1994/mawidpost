@@ -1,12 +1,13 @@
 import Link from "next/link";
+import SiteShell from "@/components/SiteShell";
 import { CONTACT_EMAIL, LAST_UPDATED, SITE_NAME } from "@/lib/site";
 
 export const metadata = { title: "حذف البيانات | Data Deletion" };
 
 export default function DataDeletion() {
   return (
+    <SiteShell>
     <main className="doc">
-      <p><Link href="/">← {SITE_NAME}</Link></p>
       <h1>حذف البيانات</h1>
       <p className="muted">آخر تحديث: {LAST_UPDATED}</p>
       <p>يمكنك حذف بياناتك من {SITE_NAME} بإحدى الطريقتين:</p>
@@ -26,5 +27,6 @@ export default function DataDeletion() {
         <p>Email {CONTACT_EMAIL} from the address registered on your account with the subject &quot;Delete my data&quot;. We will delete your account, company, posts, files and any access tokens within 30 days and confirm by email.</p>
       </div>
     </main>
+    </SiteShell>
   );
 }

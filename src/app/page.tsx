@@ -1,32 +1,139 @@
 import Link from "next/link";
+import SiteShell from "@/components/SiteShell";
+
+export const metadata = {
+  title: "موعد بوست | جدولة ونشر محتوى العملاء تلقائياً",
+  description: "منصة عربية لوكالات التسويق: ارفع التصاميم والكابشنات وخلّي المنصة تنشر على إنستغرام وفيسبوك تلقائياً، مع موافقات العميل وتقارير الأداء.",
+};
+
+const features = [
+  ["⚡", "نشر تلقائي (أوتوبايلوت)", "ارفع التصاميم والكابشنات مرة واحدة، وحدّد الأيام والأوقات، والمنصة تجدول وتنشر بدون تدخّل يدوي."],
+  ["📅", "تقويم محتوى واحد", "شاهد كل منشورات كل عملائك على تقويم واحد، وعدّل الموعد أو النص بنقرة."],
+  ["✅", "موافقات العميل", "أرسل المنشور للعميل قبل النشر، وهو يوافق أو يرفض من بوابته الخاصة، وبعدها يُجدول تلقائياً."],
+  ["👥", "فريق وصلاحيات", "مالك ومدير ومحرّر وعميل. كل موظف يرى فقط العلامات التجارية المسندة إليه."],
+  ["🏷️", "عدة علامات تجارية", "أدر عشرات العملاء داخل مساحة عمل واحدة، لكل عميل حساباته وخطته الشهرية."],
+  ["📊", "تحليلات واضحة", "متابعون، تفاعل، وأفضل المنشورات، بلغة بسيطة يفهمها العميل."],
+  ["🔗", "رابط البايو", "صفحة روابط جاهزة لحساب إنستغرام لكل علامة تجارية."],
+  ["🔒", "أمان وعزل للبيانات", "بيانات كل شركة معزولة على مستوى قاعدة البيانات، ورموز الوصول مشفّرة."],
+];
+
+const steps = [
+  ["1", "اربط الحسابات", "اربط صفحات فيسبوك وحسابات إنستغرام لكل عميل عبر تسجيل الدخول الرسمي من Meta."],
+  ["2", "ارفع المحتوى", "ارفع التصاميم مع الكابشنات، أو الصق نصوصاً كثيرة دفعة واحدة، أو استورد ملف CSV."],
+  ["3", "فعّل الأوتوبايلوت", "اختر الأيام والأوقات والحسابات، وتُنشأ الجدولة تلقائياً لباقي الشهر."],
+  ["4", "العميل يوافق ويتابع", "العميل يدخل بوابته فيرى الخطة والمواعيد والأداء ويوافق على ما يحتاج موافقة."],
+];
+
+const faqs = [
+  ["هل أحتاج تسجيلاً منفصلاً لكل عميل؟", "لا. تنشئ مساحة عمل واحدة لشركتك وتضيف كل عملائك كعلامات تجارية. يمكنك دعوة العميل ليدخل بوابته الخاصة ويرى علامته فقط."],
+  ["على أي منصات تنشر؟", "إنستغرام وفيسبوك (عبر واجهة Meta الرسمية). دعم منصات أخرى مثل تيك توك مخطّط لاحقاً."],
+  ["هل النشر تلقائي فعلاً؟", "نعم. بعد الجدولة أو تفعيل الأوتوبايلوت، تُنشر المنشورات في موعدها دون أن تفتح المنصة."],
+  ["هل يستخدم الذكاء الاصطناعي تصاميمي؟", "أنت ترفع التصاميم والكابشنات بنفسك. الذكاء الاصطناعي اختياري فقط لاقتراح كابشن عند عدم وجود نص."],
+  ["أين تُحفظ بياناتي؟", "على بنية آمنة مع عزل كامل بين الشركات، ورموز الوصول إلى حساباتك مشفّرة ولا تظهر في المتصفح. التفاصيل في سياسة الخصوصية."],
+  ["كيف أحذف بياناتي؟", "يمكنك فصل أي حساب في أي وقت، أو طلب حذف حسابك بالكامل من صفحة حذف البيانات."],
+];
 
 export default function Home() {
   return (
-    <main className="center">
-      <div className="hero">
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <span className="logo">م</span>
-          <strong>موعد بوست</strong>
+    <SiteShell>
+      <section className="s-hero">
+        <div className="s-wrap s-hero-grid">
+          <div>
+            <span className="s-pill">مصمّم لوكالات التسويق العربية</span>
+            <h1>ارفع المحتوى مرة واحدة.<br />وخلّي النشر علينا.</h1>
+            <p>
+              موعد بوست يجدول وينشر محتوى عملائك على إنستغرام وفيسبوك تلقائياً، مع موافقات العميل، وصلاحيات الفريق،
+              وتقارير أداء واضحة، كلها بالعربية ومن مكان واحد.
+            </p>
+            <div className="row">
+              <Link className="btn primary lg" href="/auth?mode=signup">ابدأ الآن</Link>
+              <Link className="btn lg" href="/#how">شاهد كيف يعمل</Link>
+            </div>
+            <p className="s-note">بدون بطاقة ائتمان للبدء</p>
+          </div>
+          <div className="s-mock" aria-hidden="true">
+            <div className="s-mock-top"><i /><i /><i /></div>
+            <div className="s-mock-cal">
+              {Array.from({ length: 21 }, (_, i) => (
+                <div key={i} className={[3, 5, 9, 12, 16, 19].includes(i) ? "on" : [7, 14].includes(i) ? "ok" : ""}>{i + 1}</div>
+              ))}
+            </div>
+            <div className="s-mock-card"><b>✅ تمّت الموافقة</b><span>منشور الخميس · 7:30 م · جدولة تلقائية</span></div>
+          </div>
         </div>
-        <h1>جدولة ونشر محتوى عملائك من مكان واحد</h1>
-        <p>
-          اربط حسابات إنستغرام وفيسبوك وتيك توك، خطّط لمنشوراتك على تقويم واحد، ودَع المنصة تنشرها في
-          موعدها.
-        </p>
-        <div className="row">
-          <Link className="btn primary" href="/auth?mode=signup">
-            ابدأ مجاناً
-          </Link>
-          <Link className="btn" href="/auth">
-            تسجيل الدخول
-          </Link>
+      </section>
+
+      <section id="features" className="s-sec">
+        <div className="s-wrap">
+          <h2>كل ما تحتاجه الوكالة في مكان واحد</h2>
+          <p className="s-sub">من أول تصميم حتى تقرير الأداء.</p>
+          <div className="s-grid">
+            {features.map(([i, t, d]) => (
+              <div key={t} className="s-card"><span className="s-ico">{i}</span><h3>{t}</h3><p>{d}</p></div>
+            ))}
+          </div>
         </div>
-        <div className="footer-links">
-          <Link href="/privacy">الخصوصية</Link>
-          <Link href="/terms">الشروط</Link>
-          <Link href="/data-deletion">حذف البيانات</Link>
+      </section>
+
+      <section id="how" className="s-sec alt">
+        <div className="s-wrap">
+          <h2>كيف يعمل؟</h2>
+          <p className="s-sub">أربع خطوات فقط.</p>
+          <div className="s-steps">
+            {steps.map(([n, t, d]) => (
+              <div key={n} className="s-step"><span className="s-num">{n}</span><h3>{t}</h3><p>{d}</p></div>
+            ))}
+          </div>
         </div>
-      </div>
-    </main>
+      </section>
+
+      <section className="s-sec">
+        <div className="s-wrap s-two">
+          <div>
+            <h2>بوابة خاصة لكل عميل</h2>
+            <p className="s-sub" style={{ marginBottom: 12 }}>
+              العميل يدخل ويرى علامته التجارية فقط: الخطة الشهرية، التقويم، المنشورات التي تنتظر موافقته، والأداء.
+              لا يرى عملاء غيره ولا الملاحظات الداخلية.
+            </p>
+            <ul className="s-list">
+              <li>موافقة أو رفض بنقرة واحدة</li>
+              <li>رفع المواد (صور، شعارات، ملفات) للوكالة</li>
+              <li>تقويم ومتابعة تقدّم الخطة الشهرية</li>
+            </ul>
+          </div>
+          <div>
+            <h2>فريقك بصلاحيات دقيقة</h2>
+            <p className="s-sub" style={{ marginBottom: 12 }}>
+              أسند كل موظف إلى العلامات التي يعمل عليها فقط. المحرّر يرسل للموافقة، والمدير يوافق ويجدول، والمالك يتحكم بكل شيء.
+            </p>
+            <ul className="s-list">
+              <li>أدوار: مالك، مدير، محرّر، عميل</li>
+              <li>تعيين علامات تجارية لكل موظف</li>
+              <li>سير موافقات قبل النشر</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" className="s-sec alt">
+        <div className="s-wrap narrow">
+          <h2>أسئلة شائعة</h2>
+          {faqs.map(([q, a]) => (
+            <details key={q} className="s-faq"><summary>{q}</summary><p>{a}</p></details>
+          ))}
+        </div>
+      </section>
+
+      <section className="s-sec">
+        <div className="s-wrap s-final">
+          <h2>جاهز توفّر ساعات من العمل اليدوي كل أسبوع؟</h2>
+          <p className="s-sub">أنشئ مساحة عملك في دقائق وابدأ بربط أول حساب.</p>
+          <div className="row" style={{ justifyContent: "center" }}>
+            <Link className="btn primary lg" href="/auth?mode=signup">ابدأ الآن</Link>
+            <Link className="btn lg" href="/pricing">شاهد الباقات</Link>
+          </div>
+        </div>
+      </section>
+    </SiteShell>
   );
 }
