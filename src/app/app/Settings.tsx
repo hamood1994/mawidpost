@@ -9,6 +9,9 @@ import type { Ctx } from "./ctx";
 export default function Settings({ ctx }: { ctx: Ctx }) {
   const [msg, setMsg] = useState<{ t: "ok" | "err"; s: string } | null>(null);
   const [brandName, setBrandName] = useState("");
+  const [mPlat, setMPlat] = useState<"instagram" | "facebook">("instagram");
+  const [mHandle, setMHandle] = useState("");
+  const [mBrand, setMBrand] = useState("");
   const isOwner = ctx.org.role === "owner";
 
   async function connect() {
@@ -35,7 +38,7 @@ export default function Settings({ ctx }: { ctx: Ctx }) {
         <div className="list">
           {ctx.allAccounts.map((a) => (
             <div key={a.id}>
-              <span>{PLATFORMS[a.platform].label} · <span className="num">@{a.handle}</span> <span className={`badge ${a.status === "connected" ? "published" : "failed"}`}>{a.status === "connected" ? "مربوط" : "غير مربوط"}</span></span>
+              <span>{PLATFORMS[a.platform].label} · <span className="num">@{a.handle}</span> <span className={`badge ${a.status === "connected" && a.external_id ? "published" : "failed"}`}>{a.status === "connected" && a.external_id ? "مربوط" : "يدوي (غير مربوط بـ Meta)"}</span></span>
               <span className="row">
                 {ctx.isAdmin && (
                   <select className="inline" value={a.brand_id ?? ""} onChange={async (e) => { await supabase.from("social_accounts").update({ brand_id: e.target.value || null }).eq("id", a.id); ctx.reload(); }}>
@@ -43,16 +46,35 @@ export default function Settings({ ctx }: { ctx: Ctx }) {
                     {ctx.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 )}
-                {ctx.isAdmin && a.status === "connected" && (
+                {ctx.isAdmin && a.status === "connected" && a.external_id && (
                   <button className="btn sm danger" onClick={async () => { await api("/api/meta/disconnect", { body: { accountId: a.id } }); ctx.reload(); }}>فصل</button>
                 )}
-                {ctx.isAdmin && a.status !== "connected" && (
+                {ctx.isAdmin && !(a.status === "connected" && a.external_id) && (
                   <button className="btn sm danger" onClick={async () => { await supabase.from("social_accounts").delete().eq("id", a.id); ctx.reload(); }}>حذف</button>
                 )}
               </span>
             </div>
           ))}
         </div>
+        {ctx.isAdmin && (
+          <div style={{ marginTop: 14 }}>
+            <p className="hint">بدون ربط Meta: أضف حساب العميل يدوياً لتستخدمه بالجدولة وأخذ موافقة العميل. النشر الفعلي يحتاج الربط لاحقاً.</p>
+            <div className="row">
+              <select className="inline" value={mPlat} onChange={(e) => setMPlat(e.target.value as "instagram" | "facebook")}>
+                <option value="instagram">إنستغرام</option><option value="facebook">فيسبوك</option>
+              </select>
+              <input className="inline" dir="ltr" placeholder="اسم الحساب بدون @" value={mHandle} onChange={(e) => setMHandle(e.target.value)} />
+              <select className="inline" value={mBrand} onChange={(e) => setMBrand(e.target.value)}>
+                <option value="">اختر البراند</option>
+                {ctx.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+              <button className="btn" disabled={!mHandle.trim() || !mBrand} onClick={async () => {
+                const { error } = await supabase.from("social_accounts").insert({ org_id: ctx.org.id, platform: mPlat, handle: mHandle.trim().replace(/^@/, ""), brand_id: mBrand, status: "connected" });
+                if (error) setMsg({ t: "err", s: friendly(error.message) }); else { setMHandle(""); ctx.reload(); }
+              }}>+ إضافة حساب يدوي</button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="panel">
