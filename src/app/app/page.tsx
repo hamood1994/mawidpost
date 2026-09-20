@@ -22,7 +22,7 @@ import Guide from "./Guide";
 
 type Tab = "calendar" | "autopilot" | "analytics" | "plans" | "library" | "team" | "bio" | "settings";
 const TABS: [Tab, string][] = [
-  ["calendar", "التقويم"], ["autopilot", "الأوتوبايلوت"], ["analytics", "التحليلات"], ["plans", "خطة العميل"], ["library", "المكتبة"],
+  ["calendar", "التقويم"], ["autopilot", "الأوتوبايلوت"], ["analytics", "التحليلات"], ["plans", "خطة العميل"], ["library", "نصوص وهاشتاقات"],
   ["team", "الفريق والعملاء"], ["bio", "صفحة الروابط"], ["settings", "الإعدادات"],
 ];
 
