@@ -21,6 +21,10 @@ export default async function BioPage({ params }: { params: Promise<{ slug: stri
       {links.map((l, i) => (
         <a key={i} className="lnk" href={l.url} target="_blank" rel="noopener noreferrer nofollow">{l.title}</a>
       ))}
+      <footer className="bio-foot">
+        <a href="https://mawidpost.com" target="_blank" rel="noopener">صُنعت بواسطة <b>موعد بوست</b></a>
+        <span>© {new Date().getFullYear()} موعد بوست. جميع الحقوق محفوظة.</span>
+      </footer>
     </main>
   );
 }
