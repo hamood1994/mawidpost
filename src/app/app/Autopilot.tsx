@@ -40,7 +40,7 @@ function parseCsv(text: string): string[][] {
 export default function Autopilot({ ctx }: { ctx: Ctx }) {
   const brand = ctx.brands.find((b) => b.id === ctx.brandId) ?? ctx.brands[0];
   if (!brand) return <div className="msg warn">أنشئ براند (عميل) من تبويب «الإعدادات» أولاً.</div>;
-  if (!ctx.isAdmin) return <div className="msg warn">الأوتوبايلوت متاح للمالك والمدير فقط.</div>;
+  if (ctx.org.role === "client") return <div className="msg warn">الأوتوبايلوت متاح للفريق فقط.</div>;
   return <Inner key={brand.id} ctx={ctx} brandId={brand.id} />;
 }
 

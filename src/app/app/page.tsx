@@ -139,7 +139,7 @@ function AppInner() {
   }
   if (org.role === "client") return <ClientPortal ctx={ctx} onSignOut={signOut} />;
 
-  const visibleTabs = TABS.filter(([k]) => ctx.isAdmin || k === "calendar" || k === "analytics" || k === "library" || k === "plans");
+  const visibleTabs = TABS.filter(([k]) => ctx.isAdmin || k === "calendar" || k === "analytics" || k === "library" || k === "plans" || k === "autopilot" || k === "bio");
 
   const y = month.getFullYear();
   const mo = month.getMonth();

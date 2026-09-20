@@ -30,7 +30,7 @@ export default function Bio({ ctx }: { ctx: Ctx }) {
     });
   }, [brandId, brand?.name, ctx.org.name]);
 
-  if (!ctx.isAdmin) return <div className="msg warn">صفحة الروابط يديرها المالك والمدير.</div>;
+  if (ctx.org.role === "client") return <div className="msg warn">صفحة الروابط يديرها الفريق.</div>;
   const setL = (i: number, p: Partial<Link>) => setLinks(links.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
   async function save() {
