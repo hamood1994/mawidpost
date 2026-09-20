@@ -271,6 +271,7 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
   const [everyDays, setEveryDays] = useState(1);
   const [postType, setPostType] = useState<PostType>("post");
   const [sel, setSel] = useState<string[]>([]);
+  const [review, setReview] = useState<"none" | "me" | "client">("none");
   const previews = useMemo(() => drafts.map((d) => URL.createObjectURL(d.file)), [drafts]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
@@ -337,13 +338,13 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
           for (const accId of picked) {
             rows.push({
               org_id: ctx.org.id, account_id: accId, caption: u.d.caption, post_type: postType, media_urls: [u.url, ...u.extra], media_url: u.url,
-              scheduled_at: base.toISOString(), status: "scheduled",
+              scheduled_at: base.toISOString(), status: review === "none" ? "scheduled" : "pending", for_client: review === "client",
             });
           }
         });
         const { error } = await supabase.from("posts").insert(rows);
         if (error) throw new Error(error.message);
-        onDone(`تمت جدولة ${rows.length} منشور. ستراها في التقويم وتُنشر تلقائياً.`);
+        onDone(review === "client" ? `أُرسل ${rows.length} منشور لموافقة العميل، وسيراها في بوابته.` : review === "me" ? `أُضيف ${rows.length} منشور بانتظار موافقتك في التقويم.` : `تمت جدولة ${rows.length} منشور. ستراها في التقويم وتُنشر تلقائياً.`);
       }
       setDrafts([]);
       setSel([]);
@@ -425,6 +426,15 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
                 <select value={postType} onChange={(e) => setPostType(e.target.value as PostType)}>
                   {(Object.keys(TYPE_LABEL) as PostType[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
                 </select>
+              </div>
+              <div className="field">
+                <label>الموافقة قبل النشر</label>
+                <div className="seg">
+                  {([["none", "بدون"], ["me", "موافقتي"], ["client", "موافقة العميل"]] as const).map(([k, l]) => (
+                    <button type="button" key={k} className={review === k ? "on" : ""} onClick={() => setReview(k)}>{l}</button>
+                  ))}
+                </div>
+                {review !== "none" && <p className="hint" style={{ margin: "6px 0 0" }}>{review === "client" ? "تظهر في بوابة العميل ليوافق أو يطلب تعديلاً، حتى لو الحساب غير مربوط مع Meta بعد." : "تنتظر موافقتك في التقويم قبل الجدولة."}</p>}
               </div>
               <div className="field">
                 <label>أول تصميم ينزل في</label>

@@ -137,8 +137,10 @@ export async function runAutopilot(
         await note(`${acc.handle}: النشر التلقائي متاح لإنستغرام وفيسبوك فقط`);
         continue;
       }
-      if (!acc.external_id || acc.status !== "connected") {
-        await note(`${acc.handle}: الحساب غير مربوط مع Meta`);
+      // Not linked to Meta yet: still build the plan when it needs approval, so the client can review it now.
+      // Posts wait for approval; actual publishing needs the account to be linked by then.
+      if ((!acc.external_id || acc.status !== "connected") && !rule.approval) {
+        await note(`${acc.handle}: الحساب غير مربوط مع Meta (فعّل «موافقة» في القاعدة لتظهر المنشورات للمراجعة قبل الربط)`);
         continue;
       }
       const { data: brand } = await db.from("brands").select("*").eq("id", rule.brand_id).maybeSingle();
