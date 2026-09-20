@@ -6,12 +6,12 @@ import { api, uploadMedia } from "@/lib/api";
 import { PLATFORMS, TYPE_LABEL, WEEKDAYS, friendly, isVideo, toJpeg, ymd, type Account, type PostType } from "@/lib/shared";
 import type { Ctx } from "./ctx";
 
-interface Item { id: string; url: string; kind: "image" | "video"; caption: string; note: string; used_count: number }
+interface Item { id: string; url: string; kind: "image" | "video"; caption: string; note: string; used_count: number; extra_urls?: string[] }
 interface Rule {
   id?: string; account_id: string; enabled: boolean; days: number[]; times: string[]; post_type: PostType;
   approval: boolean; send_to_client?: boolean; text_only_ok: boolean; last_note?: string | null; last_run_at?: string | null;
 }
-interface Draft { key: string; file: File; caption: string; when: string }
+interface Draft { key: string; file: File; caption: string; when: string; extra?: File[] }
 
 /** Minimal CSV reader (handles quotes) for: filename,caption,datetime */
 function parseCsv(text: string): string[][] {
@@ -55,7 +55,7 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
 
   const load = async () => {
     const [m, r] = await Promise.all([
-      supabase.from("media_library").select("id, url, kind, caption, note, used_count").eq("brand_id", brandId).order("created_at", { ascending: false }).limit(200),
+      supabase.from("media_library").select("id, url, kind, caption, note, used_count, extra_urls").eq("brand_id", brandId).order("created_at", { ascending: false }).limit(200),
       supabase.from("autopilot_rules").select("*").eq("brand_id", brandId),
     ]);
     setItems((m.data as Item[]) ?? []);
@@ -165,7 +165,7 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
                   }}
                 />
                 <div className="row between">
-                  <span className="badge">استُخدم {it.used_count}×</span>
+                  <span>{it.extra_urls?.length ? <span className="badge">كاروسيل · {it.extra_urls.length + 1}</span> : null} <span className="badge">استُخدم {it.used_count}×</span></span>
                   <button className="btn sm danger" onClick={async () => { await supabase.from("media_library").delete().eq("id", it.id); load(); }}>حذف</button>
                 </div>
               </div>
@@ -253,6 +253,7 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
   const [start, setStart] = useState(`${ymd(new Date(Date.now() + 86400000))}T19:00`);
   const [everyDays, setEveryDays] = useState(1);
   const [postType, setPostType] = useState<PostType>("post");
+  const [sel, setSel] = useState<string[]>([]);
   const previews = useMemo(() => drafts.map((d) => URL.createObjectURL(d.file)), [drafts]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
@@ -261,6 +262,19 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
     const next = Array.from(list).map((file) => ({ key: crypto.randomUUID(), file, caption: "", when: "" }));
     setDrafts((d) => [...d, ...next].slice(0, 60));
   };
+  const isImg = (d: Draft) => d.file.type.startsWith("image/");
+  function makeCarousel() {
+    const chosen = drafts.filter((d) => sel.includes(d.key));
+    if (chosen.length < 2 || chosen.length > 10) return onError("اختر من 2 إلى 10 صور لتصير كاروسيل.");
+    if (chosen.some((d) => !isImg(d) || d.extra?.length)) return onError("الكاروسيل هنا للصور فقط، ولا يمكن دمج كاروسيل بكاروسيل.");
+    const head = chosen[0];
+    const rest = chosen.slice(1);
+    setDrafts((all) => all.filter((d) => !rest.some((r) => r.key === d.key)).map((d) => (d.key === head.key ? { ...d, extra: rest.map((r) => r.file) } : d)));
+    setSel([]);
+  }
+  function splitCarousel(key: string) {
+    setDrafts((all) => all.flatMap((d) => (d.key === key && d.extra ? [{ ...d, extra: undefined }, ...d.extra.map((file) => ({ key: crypto.randomUUID(), file, caption: "", when: "" }))] : [d])));
+  }
   const setD = (key: string, patch: Partial<Draft>) => setDrafts((d) => d.map((x) => (x.key === key ? { ...x, ...patch } : x)));
 
   function applyBulk() {
@@ -288,13 +302,15 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
     if (mode === "dates" && picked.length === 0) return onError("اختر حساباً واحداً على الأقل للجدولة المباشرة.");
     setBusy(true);
     try {
-      const uploaded: { url: string; kind: "image" | "video"; d: Draft }[] = [];
+      const uploaded: { url: string; kind: "image" | "video"; d: Draft; extra: string[] }[] = [];
       for (const d of drafts) {
         const f = await toJpeg(d.file);
-        uploaded.push({ url: await uploadMedia(ctx.org.id, f), kind: f.type.startsWith("video/") ? "video" : "image", d });
+        const extra: string[] = [];
+        for (const ex of d.extra ?? []) extra.push(await uploadMedia(ctx.org.id, await toJpeg(ex)));
+        uploaded.push({ url: await uploadMedia(ctx.org.id, f), kind: f.type.startsWith("video/") ? "video" : "image", d, extra });
       }
       if (mode === "library") {
-        const { error } = await supabase.from("media_library").insert(uploaded.map((u) => ({ org_id: ctx.org.id, brand_id: brandId, url: u.url, kind: u.kind, caption: u.d.caption.trim() })));
+        const { error } = await supabase.from("media_library").insert(uploaded.map((u) => ({ org_id: ctx.org.id, brand_id: brandId, url: u.url, kind: u.kind, caption: u.d.caption.trim(), extra_urls: u.extra })));
         if (error) throw new Error(error.message);
         onDone(`أُضيف ${uploaded.length} تصميم إلى المكتبة. سينشرها الأوتوبايلوت حسب القواعد.`);
       } else {
@@ -303,7 +319,7 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
           const base = u.d.when ? new Date(u.d.when) : new Date(new Date(start).getTime() + i * everyDays * 86400000);
           for (const accId of picked) {
             rows.push({
-              org_id: ctx.org.id, account_id: accId, caption: u.d.caption, post_type: postType, media_urls: [u.url], media_url: u.url,
+              org_id: ctx.org.id, account_id: accId, caption: u.d.caption, post_type: postType, media_urls: [u.url, ...u.extra], media_url: u.url,
               scheduled_at: base.toISOString(), status: "scheduled",
             });
           }
@@ -313,6 +329,7 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
         onDone(`تمت جدولة ${rows.length} منشور. ستراها في التقويم وتُنشر تلقائياً.`);
       }
       setDrafts([]);
+      setSel([]);
       setBulk("");
     } catch (e) {
       onError(friendly((e as Error).message));
@@ -339,11 +356,24 @@ function Uploader({ ctx, brandId, accounts, onDone, onError }: { ctx: Ctx; brand
             <textarea value={bulk} onChange={(e) => setBulk(e.target.value)} />
             <button type="button" className="btn sm" style={{ alignSelf: "flex-start" }} onClick={applyBulk}>وزّع على التصاميم بالترتيب</button>
           </div>
+          {sel.length > 0 && (
+            <div className="row" style={{ margin: "10px 0" }}>
+              <button type="button" className="btn primary sm" onClick={makeCarousel}>اجعل الـ {sel.length} المحددة كاروسيل واحد</button>
+              <span className="hint">تصير منشوراً واحداً بعدة صور، والكابشن للأولى.</span>
+            </div>
+          )}
           <div className="items">
             {drafts.map((d, i) => (
               <div className="item" key={d.key}>
                 {d.file.type.startsWith("video/") ? <video src={previews[i]} muted /> : <img src={previews[i]} alt={d.file.name} />}
                 <div className="b">
+                  {d.extra?.length ? (
+                    <div className="row between"><span className="badge">كاروسيل · {d.extra.length + 1} صور</span><button type="button" className="btn sm" onClick={() => splitCarousel(d.key)}>فكّ</button></div>
+                  ) : isImg(d) ? (
+                    <label className={`check${sel.includes(d.key) ? " on" : ""}`}>
+                      <input type="checkbox" checked={sel.includes(d.key)} onChange={() => setSel((s) => (s.includes(d.key) ? s.filter((x) => x !== d.key) : [...s, d.key]))} />ضمن كاروسيل
+                    </label>
+                  ) : null}
                   <textarea value={d.caption} placeholder="الكابشن (اختياري)" onChange={(e) => setD(d.key, { caption: e.target.value })} />
                   {mode === "dates" && <input className="inline" type="datetime-local" dir="ltr" value={d.when} onChange={(e) => setD(d.key, { when: e.target.value })} />}
                   <button className="btn sm danger" onClick={() => setDrafts(drafts.filter((x) => x.key !== d.key))}>إزالة</button>

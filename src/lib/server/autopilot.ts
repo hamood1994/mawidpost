@@ -182,17 +182,18 @@ export async function runAutopilot(
         }
 
         // 1) designs never used, oldest first (the manager's queue). 2) optionally recycle the least used.
-        const cols = "id, url, kind, caption, note, used_count";
+        const cols = "id, url, kind, caption, note, used_count, extra_urls";
         const base = () => {
           let mq = db.from("media_library").select(cols).eq("brand_id", rule.brand_id);
           if (rule.post_type === "reel") mq = mq.eq("kind", "video");
+          if (rule.post_type !== "post") mq = mq.eq("extra_urls", "{}"); // carousels only on regular feed posts
           return mq;
         };
         let { data: media } = await base().eq("used_count", 0).order("created_at", { ascending: true }).limit(1);
         if (!media?.length && rule.recycle) {
           ({ data: media } = await base().order("used_count", { ascending: true }).order("last_used_at", { ascending: true, nullsFirst: true }).limit(1));
         }
-        const pick = media?.[0] as { id: string; url: string; kind: string; caption: string; note: string; used_count: number } | undefined;
+        const pick = media?.[0] as { id: string; url: string; kind: string; caption: string; note: string; used_count: number; extra_urls?: string[] } | undefined;
         if (!pick && !(acc.platform === "facebook" && rule.text_only_ok && rule.post_type === "post")) {
           lastNote = rule.post_type === "reel" ? "لا توجد فيديوهات جاهزة في المكتبة" : "لا توجد تصاميم جاهزة في المكتبة، ارفع تصاميم جديدة";
           break;
@@ -227,7 +228,7 @@ export async function runAutopilot(
           org_id: rule.org_id,
           account_id: acc.id,
           caption,
-          media_urls: pick ? [pick.url] : [],
+          media_urls: pick ? [pick.url, ...(pick.extra_urls ?? [])] : [],
           media_url: pick?.url ?? null,
           post_type: rule.post_type,
           scheduled_at: slot.toISOString(),
