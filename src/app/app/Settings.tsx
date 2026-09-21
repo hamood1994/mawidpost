@@ -84,8 +84,8 @@ export default function Settings({ ctx }: { ctx: Ctx }) {
             <div key={b.id}>
               <span>{b.name}</span>
               {ctx.isAdmin && (
-                <label className={`check${b.client_approval ? " on" : ""}`} title="بعد موافقة المدير، يرسل المنشور للعميل ليوافق قبل الجدولة">
-                  <input type="checkbox" checked={b.client_approval ?? false} onChange={async (e) => { await supabase.from("brands").update({ client_approval: e.target.checked }).eq("id", b.id); ctx.reload(); }} />
+                <label className={`check${b.client_approval !== false ? " on" : ""}`} title="بعد موافقة المدير، يرسل المنشور للعميل ليوافق قبل الجدولة">
+                  <input type="checkbox" checked={b.client_approval !== false} onChange={async (e) => { await supabase.from("brands").update({ client_approval: e.target.checked }).eq("id", b.id); ctx.reload(); }} />
                   موافقة العميل بعد المدير
                 </label>
               )}

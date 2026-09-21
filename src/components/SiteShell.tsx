@@ -8,7 +8,7 @@ export default function SiteShell({ children }: { children: ReactNode }) {
       <header className="s-head">
         <div className="s-wrap s-bar">
           <Link href="/" className="s-brand">
-            <span className="logo">م</span>
+            <img className="logo-img" src="/logo-black.png" alt="MawidPost" />
             <strong>موعد بوست</strong>
           </Link>
           <nav className="s-nav" aria-label="القائمة الرئيسية">
@@ -28,7 +28,7 @@ export default function SiteShell({ children }: { children: ReactNode }) {
       <footer className="s-foot">
         <div className="s-wrap s-foot-grid">
           <div>
-            <div className="s-brand"><span className="logo">م</span><strong>موعد بوست</strong></div>
+            <div className="s-brand"><img className="logo-img" src="/logo-black.png" alt="MawidPost" /><strong>موعد بوست</strong></div>
             <p className="muted">منصة عربية لجدولة ونشر محتوى العملاء لشركات التسويق والوكالات.</p>
           </div>
           <div>

@@ -39,7 +39,7 @@ export default function PostModal({ ctx, post, onClose, onChanged }: { ctx: Ctx;
   const changed = caption !== post.caption || new Date(when).toISOString() !== new Date(post.scheduled_at).toISOString();
   const isEditor = ctx.org.role === "editor";
   const brand = ctx.brands.find((b) => b.id === acc?.brand_id);
-  const chain = Boolean(brand?.client_approval); // manager approves first, then the client
+  const chain = brand?.client_approval !== false; // manager approves first, then the client
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -97,7 +97,10 @@ export default function PostModal({ ctx, post, onClose, onChanged }: { ctx: Ctx;
             <>
               <button className="btn" disabled={busy} onClick={async () => { if (note.trim()) await addComment(note); await update({ status: "draft", for_client: false }); }}>رفض (مسودة)</button>
               {chain && !post.for_client ? (
-                <button className="btn primary" disabled={busy} onClick={() => update({ for_client: true, caption, scheduled_at: new Date(when).toISOString() })}>موافقة وإرسال للعميل</button>
+                <>
+                  <button className="btn" disabled={busy} title="للبراندات اللي ما إلها عميل" onClick={() => update({ status: "scheduled", caption, scheduled_at: new Date(when).toISOString() })}>جدولة بدون العميل</button>
+                  <button className="btn primary" disabled={busy} onClick={() => update({ for_client: true, caption, scheduled_at: new Date(when).toISOString() })}>موافقة وإرسال للعميل</button>
+                </>
               ) : (
                 <button className="btn primary" disabled={busy} onClick={() => update({ status: "scheduled", caption, scheduled_at: new Date(when).toISOString() })}>موافقة وجدولة</button>
               )}

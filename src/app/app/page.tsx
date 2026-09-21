@@ -154,7 +154,7 @@ function AppInner() {
     <>
       <header className="topbar">
         <div className="brand">
-          <span className="logo">م</span>
+          <img className="logo-img" src="/logo-black.png" alt="MawidPost" />
           <div>
             موعد بوست
             {orgs.length > 1 ? (

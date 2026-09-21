@@ -288,3 +288,7 @@ select.inline, input.inline { border: 1px solid var(--line); background: var(--s
 .steps3 > div { display: flex; flex-direction: column; gap: 3px; background: var(--soft); border-radius: 12px; padding: 12px; }
 .steps3 .n { width: 24px; height: 24px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); display: inline-grid; place-items: center; font-weight: 700; font-size: 13px; }
 .steps3 small { color: var(--muted); line-height: 1.6; }
+
+.logo-img { height: 26px; width: auto; display: inline-block; vertical-align: middle; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo-img { filter: invert(1); } }
+:root[data-theme="dark"] .logo-img { filter: invert(1); }

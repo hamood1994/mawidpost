@@ -124,7 +124,7 @@ function Inner({ ctx, brandId }: { ctx: Ctx; brandId: string }) {
         {accounts.length === 0 && <div className="msg warn">لا توجد حسابات مربوطة بهذا البراند. اربط الحسابات وحدّد البراند من «الإعدادات».</div>}
         <div className="grid2">
           {accounts.map((a) => (
-            <RuleCard key={a.id} account={a} rule={ruleFor(a)} onSave={saveRule} chain={Boolean(brand.client_approval)} />
+            <RuleCard key={a.id} account={a} rule={ruleFor(a)} onSave={saveRule} chain={brand.client_approval !== false} />
           ))}
         </div>
       </div>

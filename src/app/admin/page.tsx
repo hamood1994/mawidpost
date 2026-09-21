@@ -44,7 +44,7 @@ export default function AdminPage() {
   return (
     <>
       <header className="topbar">
-        <div className="brand"><span className="logo">م</span><div>لوحة مشغّل المنصة<small>MawidPost Admin</small></div></div>
+        <div className="brand"><img className="logo-img" src="/logo-black.png" alt="MawidPost" /><div>لوحة مشغّل المنصة<small>MawidPost Admin</small></div></div>
         <Link className="btn" href="/app">العودة للتطبيق</Link>
       </header>
       <div className="page">
